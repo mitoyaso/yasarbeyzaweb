@@ -1,0 +1,123 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    --font-script: 'Caveat', cursive;
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: radial-gradient(circle at 10% 20%, rgba(255, 228, 230, 0.45) 0%, rgba(255, 245, 247, 0.6) 50%, rgba(254, 242, 244, 0.4) 100%),
+                linear-gradient(135deg, #FFF9FA 0%, #FFF0F4 50%, #FAF5EE 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+  }
+}
+
+.font-script {
+  font-family: 'Caveat', cursive;
+}
+
+/* Cam Efekti (Glassmorphism) Stilleri */
+.glass-panel {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 228, 230, 0.7);
+  box-shadow: 0 10px 30px -5px rgba(244, 63, 94, 0.08), 0 0 1px 1px rgba(255, 255, 255, 0.6) inset;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 225, 230, 0.65);
+  box-shadow: 0 8px 24px -4px rgba(244, 63, 94, 0.06), 0 2px 6px -1px rgba(225, 29, 72, 0.04);
+}
+
+.glass-card-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card-hover:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 16px 36px -6px rgba(244, 63, 94, 0.12), 0 4px 10px -2px rgba(225, 29, 72, 0.06);
+  border-color: rgba(253, 164, 175, 0.8);
+}
+
+.glass-input {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1.5px solid rgba(254, 205, 211, 0.8);
+  transition: all 0.2s ease-in-out;
+}
+
+.glass-input:focus {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: #f43f5e;
+  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.15);
+  outline: none;
+}
+
+/* Romantik Pembe Işıltı */
+.romantic-glow {
+  box-shadow: 0 0 25px -3px rgba(244, 63, 94, 0.35);
+}
+
+/* Kalp Uçuşma Animasyonu */
+@keyframes floatUp {
+  0% {
+    transform: translateY(100vh) scale(0.6) rotate(0deg);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.8;
+  }
+  80% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateY(-10vh) scale(1.1) rotate(25deg);
+    opacity: 0;
+  }
+}
+
+.animate-float-heart {
+  animation: floatUp 12s linear infinite;
+}
+
+/* Nabız Efekti */
+@keyframes heartPulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.12);
+  }
+}
+
+.animate-heart-pulse {
+  animation: heartPulse 1.8s ease-in-out infinite;
+}
+
+/* Özel Akıcı Kaydırma Çubuğu */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 241, 242, 0.5);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #fda4af;
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #fb7185;
+}
