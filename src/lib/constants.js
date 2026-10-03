@@ -24,7 +24,7 @@ export const SENDERS = {
 };
 
 // Supabase Storage Bucket Adı
-export const SUPABASE_BUCKET_NAME = 'couples-photos';
+export const SUPABASE_BUCKET_NAME = 'couple-photos';
 
 // Özel Tarih / Yıldönümü Hedefi (29 Ağustos 2026)
 export const SPECIAL_DATE = '2026-08-29T00:00:00';
