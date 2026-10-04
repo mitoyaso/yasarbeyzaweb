@@ -41,7 +41,7 @@ sahteOturumKur(window);
 
 const fotolar = [sahteFoto(1), sahteFoto(2), sahteFoto(3), sahteFoto(4)];
 const notlar = [sahteNot(1), sahteNot(2)];
-const apiGeriAl = sahteApiKur({ fotolar, notlar });
+const api = sahteApiKur({ fotolar, notlar });
 
 const escBas = () => {
   document.dispatchEvent(
@@ -164,7 +164,7 @@ console.log(
 console.log('\n=== SONUÇ ===');
 console.log(`  ${basarisiz === 0 ? 'TÜM KONTROLLER GEÇTİ ✅' : `${basarisiz} kontrol BAŞARISIZ ❌`}`);
 
-apiGeriAl();
+api.geriAl();
 
 if (basarisiz !== 0) {
   console.log('\nSon ekran içeriği (ilk 400 karakter):\n' + icerik.slice(0, 400));

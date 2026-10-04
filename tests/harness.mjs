@@ -203,18 +203,28 @@ export function sahteOturumKur(window) {
 }
 
 /**
- * Supabase çağrılarını sahte yanıtlarla karşılar.
- * @returns {() => void} gerçek fetch'i geri koyan fonksiyon
+ * Supabase çağrılarını sahte yanıtlarla karşılar ve gelen istekleri kaydeder.
+ * @returns {{geriAl: () => void, istekler: Array, sifirla: () => void}}
  */
 export function sahteApiKur({ fotolar = [], notlar = [], copFotolar = [], copNotlar = [] } = {}) {
   const oncekiFetch = globalThis.fetch;
+  const istekler = [];
 
   globalThis.fetch = async (girdi, init = {}) => {
     const url = typeof girdi === 'string' ? girdi : girdi.url;
     const yontem = String(init.method || 'GET').toUpperCase();
 
-    const cevap = (govde, durum = 200, basliklar = {}) =>
-      new Response(govde === undefined ? null : JSON.stringify(govde), {
+    // İsteği kaydet (test sonrası incelenir)
+    let govde = null;
+    try {
+      govde = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+    } catch {
+      govde = typeof init.body === 'string' ? init.body : null;
+    }
+    istekler.push({ yontem, url, govde, basliklar: init.headers || {} });
+
+    const cevap = (yanit, durum = 200, basliklar = {}) =>
+      new Response(yanit === undefined ? null : JSON.stringify(yanit), {
         status: durum,
         headers: { 'content-type': 'application/json', ...basliklar },
       });
@@ -222,6 +232,12 @@ export function sahteApiKur({ fotolar = [], notlar = [], copFotolar = [], copNot
     // Sayım istekleri (HEAD) → content-range başlığı gerekir
     if (yontem === 'HEAD' && url.includes('/rest/v1/')) {
       return cevap(null, 200, { 'content-range': '0-0/3' });
+    }
+
+    // Yazma işlemleri (PATCH/POST/DELETE) → başarılı kabul edilir
+    if (yontem === 'PATCH' || yontem === 'DELETE') {
+      if (url.includes('/storage/v1/')) return cevap([], 200);
+      return cevap([], 200);
     }
 
     if (url.includes('/rest/v1/photos')) {
@@ -243,8 +259,8 @@ export function sahteApiKur({ fotolar = [], notlar = [], copFotolar = [], copNot
     if (url.includes('/storage/v1/object/sign/')) {
       let yollar = ['test.jpg'];
       try {
-        const govde = typeof init.body === 'string' ? JSON.parse(init.body) : null;
-        if (govde?.paths) yollar = govde.paths;
+        const parsed = typeof init.body === 'string' ? JSON.parse(init.body) : null;
+        if (parsed?.paths) yollar = parsed.paths;
       } catch {
         /* varsayılan yol kullanılır */
       }
@@ -264,8 +280,14 @@ export function sahteApiKur({ fotolar = [], notlar = [], copFotolar = [], copNot
     return cevap([]);
   };
 
-  return () => {
-    globalThis.fetch = oncekiFetch;
+  return {
+    geriAl: () => {
+      globalThis.fetch = oncekiFetch;
+    },
+    istekler,
+    sifirla: () => {
+      istekler.length = 0;
+    },
   };
 }
 
@@ -277,6 +299,35 @@ export function tikla(document, metin) {
   const hedef = adaylar.find((el) => (el.textContent || '').includes(metin));
   if (!hedef) return false;
   hedef.click();
+  return true;
+}
+
+/**
+ * CSS seçicisine göre ilk öğeye tıklar (metinsiz butonlar için).
+ */
+export function tiklaSecici(document, secici) {
+  const hedef = document.querySelector(secici);
+  if (!hedef) return false;
+  hedef.click();
+  return true;
+}
+
+/**
+ * React'in kontrol ettiği bir metin kutusuna yazı yazar.
+ * (Doğrudan value atamak React tarafından görülmez; yerel setter kullanılır.)
+ */
+export function yaz(window, input, metin) {
+  if (!input) return false;
+
+  const tanimlayici = Object.getOwnPropertyDescriptor(
+    window.HTMLInputElement.prototype,
+    'value'
+  );
+
+  if (tanimlayici?.set) tanimlayici.set.call(input, metin);
+  else input.value = metin;
+
+  input.dispatchEvent(new window.Event('input', { bubbles: true }));
   return true;
 }
 
