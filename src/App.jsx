@@ -9,6 +9,7 @@ import NotesWall from './components/notes/NotesWall';
 import Toast from './components/Toast';
 import SupabaseInfoModal from './components/SupabaseInfoModal';
 import InstallPrompt from './components/InstallPrompt';
+import UsPanel from './components/us/UsPanel';
 import { STORAGE_KEYS, SENDERS } from './lib/constants';
 import { getPhotos, getNotes, isSupabaseConfigured } from './lib/supabase';
 import {
@@ -17,7 +18,7 @@ import {
   signOutUser,
   displayNameFromSession,
 } from './lib/auth';
-import { Camera, MessageSquareHeart, Heart, AlertTriangle } from 'lucide-react';
+import { Camera, MessageSquareHeart, Heart, AlertTriangle, Sparkles } from 'lucide-react';
 
 export default function App() {
   // Aktif Supabase Auth oturumu (giriş yapan kullanıcı)
@@ -273,6 +274,19 @@ export default function App() {
             <MessageSquareHeart className="w-4 h-4" />
             <span>Aşk Notları Duvarı ({notes.length})</span>
           </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveTab('us')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-2xl font-bold text-sm transition-all cursor-pointer ${
+              activeTab === 'us'
+                ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-lg shadow-rose-500/25 scale-[1.02]'
+                : 'glass-panel bg-white/70 text-rose-800 hover:bg-white'
+            }`}
+          >
+            <Sparkles className="w-4 h-4" />
+            <span>Bizim Köşemiz</span>
+          </button>
         </div>
 
         {/* Sekme İçerikleri */}
@@ -309,20 +323,8 @@ export default function App() {
           />
         )}
 
-        {activeTab === 'counter' && (
-          <div className="sm:hidden mt-2">
-            <NotesWall
-              notes={notes}
-              activeSender={activeSender}
-              isLoading={isLoadingNotes}
-              onRefresh={fetchNotes}
-              onNoteAdded={(newNote) => setNotes((prev) => [newNote, ...prev])}
-              onNoteDeleted={(noteId) =>
-                setNotes((prev) => prev.filter((n) => n.id !== noteId))
-              }
-              showToast={showToast}
-            />
-          </div>
+        {activeTab === 'us' && (
+          <UsPanel photos={photos} notes={notes} showToast={showToast} />
         )}
       </main>
 

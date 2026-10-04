@@ -784,3 +784,92 @@ export async function deleteNote(noteId) {
 
   return true;
 }
+
+/**
+ * Tek bir dosya için imzalı (süreli) adres üretir.
+ * Yedekleme indirmesi gibi uygulama dışı kullanımlar için.
+ */
+export async function createPhotoSignedUrl(storagePath, expiresIn = 600) {
+  if (!isSupabaseConfigured || !storagePath) return null;
+
+  const { data, error } = await supabase.storage
+    .from(SUPABASE_BUCKET_NAME)
+    .createSignedUrl(storagePath, expiresIn);
+
+  if (error) {
+    console.warn('İmzalı adres üretilemedi:', storagePath, error.message);
+    return null;
+  }
+
+  return toAbsoluteStorageUrl(data?.signedUrl);
+}
+
+// ==============================================================================
+// İSTATİSTİKLER VE YEDEKLEME VERİSİ
+// ==============================================================================
+
+/**
+ * Tablo başına toplam kayıt sayısını döner (başarımlar ve istatistik kartları için).
+ * Sadece sayım istenir; veri indirilmez (head: true).
+ */
+export async function getCounts() {
+  const empty = { photos: 0, notes: 0, comments: 0, likes: 0 };
+  if (!isSupabaseConfigured) return empty;
+
+  const countOf = async (table) => {
+    const { count, error } = await supabase
+      .from(table)
+      .select('*', { count: 'exact', head: true });
+
+    if (error) {
+      console.warn(`${table} sayısı alınamadı:`, error.message);
+      return 0;
+    }
+    return count ?? 0;
+  };
+
+  const [photos, notes, comments, likes] = await Promise.all([
+    countOf('photos'),
+    countOf('notes'),
+    countOf('comments'),
+    countOf('likes'),
+  ]);
+
+  return { photos, notes, comments, likes };
+}
+
+/**
+ * Yedekleme için tüm veriyi indirir.
+ */
+export async function getAllDataForBackup() {
+  if (!isSupabaseConfigured) {
+    return {
+      notes: getLocalDemoData(STORAGE_KEYS.DEMO_NOTES, DEFAULT_DEMO_NOTES),
+      photos: getLocalDemoData(STORAGE_KEYS.DEMO_PHOTOS, DEFAULT_DEMO_PHOTOS),
+      comments: getLocalDemoData(STORAGE_KEYS.DEMO_COMMENTS, DEFAULT_DEMO_COMMENTS),
+      likes: getLocalDemoData(STORAGE_KEYS.DEMO_LIKES, DEFAULT_DEMO_LIKES),
+    };
+  }
+
+  const fetchAll = async (table, orderColumn = 'created_at') => {
+    const { data, error } = await supabase
+      .from(table)
+      .select('*')
+      .order(orderColumn, { ascending: true });
+
+    if (error) {
+      console.warn(`${table} yedeklenemedi:`, error.message);
+      return [];
+    }
+    return data || [];
+  };
+
+  const [notes, photos, comments, likes] = await Promise.all([
+    fetchAll('notes'),
+    fetchAll('photos'),
+    fetchAll('comments'),
+    fetchAll('likes'),
+  ]);
+
+  return { notes, photos, comments, likes };
+}

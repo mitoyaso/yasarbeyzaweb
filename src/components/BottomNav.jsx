@@ -34,15 +34,15 @@ export default function BottomNav({ activeTab, onSelectTab, activeSender, onTogg
 
       <button
         type="button"
-        onClick={() => onSelectTab('counter')}
+        onClick={() => onSelectTab('us')}
         className={`flex flex-col items-center justify-center p-1.5 rounded-2xl transition-all cursor-pointer ${
-          activeTab === 'counter'
+          activeTab === 'us'
             ? 'text-rose-600 scale-105 font-bold'
             : 'text-rose-400 hover:text-rose-600'
         }`}
       >
         <Sparkles className="w-5 h-5 mb-0.5" />
-        <span className="text-[10px]">Sayaç</span>
+        <span className="text-[10px]">Biz</span>
       </button>
 
       {/* Hızlı Gönderen Değiştirici */}
