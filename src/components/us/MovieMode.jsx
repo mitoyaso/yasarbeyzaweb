@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatTurkishDate } from '../../lib/utils';
+import { useModalA11y } from '../../lib/useModalA11y';
 import {
   X,
   Play,
@@ -34,6 +35,9 @@ export default function MovieMode({ photos, onClose }) {
   const audioUrlRef = useRef(null);
   const musicInputRef = useRef(null);
 
+  // Escape ile kapanma + odak tuzağı (kanca koşulsuz çağrılmalı)
+  const dialogRef = useModalA11y({ onClose });
+
   const current = slides[index];
 
   const goNext = useCallback(() => {
@@ -51,11 +55,10 @@ export default function MovieMode({ photos, onClose }) {
     return () => clearTimeout(timer);
   }, [isPlaying, index, slides.length, goNext]);
 
-  // Klavye kısayolları
+  // Klavye kısayolları (Escape'i ortak erişilebilirlik kancası yönetir)
   useEffect(() => {
     const handleKey = (event) => {
-      if (event.key === 'Escape') onClose();
-      else if (event.key === 'ArrowRight') goNext();
+      if (event.key === 'ArrowRight') goNext();
       else if (event.key === 'ArrowLeft') goPrev();
       else if (event.key === ' ') {
         event.preventDefault();
@@ -64,7 +67,7 @@ export default function MovieMode({ photos, onClose }) {
     };
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [goNext, goPrev, onClose]);
+  }, [goNext, goPrev]);
 
   // Tam ekran denemesi (tarayıcı engellerse sessizce yok sayılır)
   useEffect(() => {
@@ -149,7 +152,13 @@ export default function MovieMode({ photos, onClose }) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Bizim Filmimiz"
+      className="fixed inset-0 z-50 bg-black flex flex-col"
+    >
       {/* Görsel Alanı */}
       <div className="relative flex-1 overflow-hidden">
         <img

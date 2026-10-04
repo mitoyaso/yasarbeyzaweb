@@ -6,46 +6,11 @@
 
 import { supabase, isSupabaseConfigured } from './supabase';
 import { emailForName, nameForEmail } from './constants';
+// Hata mesajları ayrı ve saf bir dosyada tutulur; böylece tarayıcı ortamına
+// ihtiyaç duymadan test edilebilir.
+import { translateAuthError } from './authMessages.js';
 
-// Supabase'in döndürdüğü hata kodlarını anlaşılır Türkçe mesajlara çevirir.
-const AUTH_ERROR_MESSAGES = {
-  invalid_credentials: 'Şifre hatalı. Lütfen tekrar dene. 💔',
-  email_not_confirmed:
-    'Bu hesap henüz onaylanmamış. Supabase panelinde (Authentication → Users) hesabı onaylaman gerekiyor.',
-  user_not_found: 'Bu hesap Supabase panelinde tanımlı değil.',
-  user_banned: 'Bu hesap devre dışı bırakılmış.',
-  too_many_requests: 'Çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyip tekrar dene.',
-  over_request_rate_limit: 'Çok fazla deneme yapıldı. Lütfen birkaç dakika bekleyip tekrar dene.',
-  over_email_send_rate_limit: 'Çok fazla e-posta istendi. Lütfen biraz bekle.',
-  validation_failed: 'Girilen bilgiler geçersiz.',
-  weak_password: 'Şifre çok zayıf. Daha güçlü bir şifre belirle.',
-  session_not_found: 'Oturum bulunamadı, lütfen tekrar giriş yap.',
-  refresh_token_not_found: 'Oturumun süresi dolmuş, lütfen tekrar giriş yap.',
-};
-
-/**
- * Supabase Auth hatasını kullanıcıya gösterilecek Türkçe metne çevirir.
- */
-export function translateAuthError(error) {
-  if (!error) return 'Bilinmeyen bir giriş hatası oluştu.';
-
-  const code = error.code || '';
-  if (AUTH_ERROR_MESSAGES[code]) return AUTH_ERROR_MESSAGES[code];
-
-  const message = String(error.message || '').toLowerCase();
-
-  if (message.includes('invalid login credentials')) return AUTH_ERROR_MESSAGES.invalid_credentials;
-  if (message.includes('email not confirmed')) return AUTH_ERROR_MESSAGES.email_not_confirmed;
-  if (message.includes('rate limit') || message.includes('too many')) {
-    return AUTH_ERROR_MESSAGES.too_many_requests;
-  }
-  if (error.status === 429) return AUTH_ERROR_MESSAGES.too_many_requests;
-  if (message.includes('failed to fetch') || message.includes('networkerror')) {
-    return 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.';
-  }
-
-  return error.message || 'Giriş yapılamadı. Lütfen tekrar dene.';
-}
+export { translateAuthError };
 
 /**
  * Seçilen kişi adı + şifre ile Supabase Auth'a giriş yapar.

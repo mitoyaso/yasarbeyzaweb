@@ -10,46 +10,10 @@
 // ==============================================================================
 
 import { supabase, isSupabaseConfigured } from './supabase';
+// Hata mesajları ayrı ve saf bir dosyada tutulur (test edilebilirlik için).
+import { translateMfaError } from './authMessages.js';
 
-const MFA_ERROR_MESSAGES = {
-  mfa_verification_failed: 'Kod hatalı. Uygulamadaki güncel kodu gir.',
-  mfa_challenge_expired: 'Kodun süresi doldu. Yeni bir kod gir.',
-  invalid_code: 'Kod hatalı. Uygulamadaki güncel kodu gir.',
-  too_many_requests: 'Çok fazla deneme yapıldı. Lütfen biraz bekleyip tekrar dene.',
-  over_request_rate_limit: 'Çok fazla deneme yapıldı. Lütfen biraz bekleyip tekrar dene.',
-  insufficient_aal: 'İki adımlı doğrulama tamamlanmadı. Lütfen kodu tekrar gir.',
-};
-
-/**
- * Supabase'in MFA hatasını anlaşılır Türkçe metne çevirir.
- */
-export function translateMfaError(error) {
-  if (!error) return 'İki adımlı doğrulama sırasında bilinmeyen bir hata oluştu.';
-
-  const code = error.code || '';
-  if (MFA_ERROR_MESSAGES[code]) return MFA_ERROR_MESSAGES[code];
-
-  const message = String(error.message || '').toLowerCase();
-
-  if (message.includes('mfa is not enabled') || message.includes('mfa_not_enabled')) {
-    return (
-      'İki adımlı doğrulama Supabase panelinde KAPALI. ' +
-      'Authentication → Multi-Factor Auth bölümünden TOTP seçeneğini etkinleştirip tekrar dene.'
-    );
-  }
-  if (message.includes('invalid') && message.includes('code')) {
-    return MFA_ERROR_MESSAGES.invalid_code;
-  }
-  if (message.includes('expired')) return MFA_ERROR_MESSAGES.mfa_challenge_expired;
-  if (message.includes('rate limit') || message.includes('too many')) {
-    return MFA_ERROR_MESSAGES.too_many_requests;
-  }
-  if (message.includes('failed to fetch')) {
-    return 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.';
-  }
-
-  return error.message || 'İki adımlı doğrulama başarısız oldu.';
-}
+export { translateMfaError };
 
 /**
  * Oturumun doğrulama seviyesi (aal1 = sadece şifre, aal2 = şifre + kod).

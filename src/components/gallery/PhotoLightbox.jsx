@@ -1,22 +1,24 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import { formatTurkishDate } from '../../lib/utils';
+import { useModalA11y } from '../../lib/useModalA11y';
 import { X, Download, Heart, Calendar } from 'lucide-react';
 
 export default function PhotoLightbox({ photo, onClose }) {
-  useEffect(() => {
-    const handleKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  // Escape ile kapanma + odak tuzağı + kaydırma kilidi (kanca koşulsuz çağrılmalı)
+  const dialogRef = useModalA11y({ isOpen: Boolean(photo), onClose });
 
   if (!photo) return null;
 
   const isYasar = photo.uploaded_by === 'Yaşar';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200">
+    <div
+      ref={dialogRef}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Anı Görünümü"
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+    >
       {/* Üst Kapatma ve İndirme Çubuğu */}
       <div className="absolute top-4 right-4 flex items-center gap-3 z-10">
         <a

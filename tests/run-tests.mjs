@@ -12,6 +12,13 @@ import { longestDailyStreak, computeStats, computeAchievements } from '../src/li
 import { createZip, textToBytes, crc32 } from '../src/lib/zip.js';
 import { thumbPathFor, THUMB_PREFIX } from '../src/lib/image.js';
 import { notificationPermission, notificationsSupported, isPageHidden } from '../src/lib/notifications.js';
+import {
+  translateAuthError,
+  translateMfaError,
+  AUTH_ERROR_MESSAGES,
+  MFA_ERROR_MESSAGES,
+  MFA_DISABLED_MESSAGE,
+} from '../src/lib/authMessages.js';
 
 let toplamTest = 0;
 let basarisiz = 0;
@@ -111,6 +118,22 @@ bolum('BİLDİRİM YARDIMCILARI (tarayıcı API\'si olmayan ortam)');
 kontrol('izin durumu → unsupported', notificationPermission(), 'unsupported');
 kontrol('destek durumu → false', notificationsSupported(), false);
 kontrol('sayfa gizli mi → false', isPageHidden(), false);
+
+// ==============================================================================
+bolum('HATA MESAJLARI (kullanıcıya gösterilen Türkçe metinler)');
+// ==============================================================================
+kontrol('kod ile eşleşme (invalid_credentials)', translateAuthError({ code: 'invalid_credentials' }), AUTH_ERROR_MESSAGES.invalid_credentials);
+kontrol('mesaj ile eşleşme (Invalid login credentials)', translateAuthError({ message: 'Invalid login credentials' }), AUTH_ERROR_MESSAGES.invalid_credentials);
+kontrol('onaylanmamış hesap', translateAuthError({ message: 'Email not confirmed' }), AUTH_ERROR_MESSAGES.email_not_confirmed);
+kontrol('429 durum kodu', translateAuthError({ status: 429, message: 'x' }), AUTH_ERROR_MESSAGES.too_many_requests);
+kontrol('bağlantı hatası', translateAuthError({ message: 'Failed to fetch' }), 'Sunucuya ulaşılamadı. İnternet bağlantını kontrol edip tekrar dene.');
+kontrol('hata yok', translateAuthError(null), 'Bilinmeyen bir giriş hatası oluştu.');
+kontrol('bilinmeyen hata mesajı korunur', translateAuthError({ message: 'Beklenmeyen durum' }), 'Beklenmeyen durum');
+
+kontrol('2FA panelde kapalı', translateMfaError({ message: 'MFA is not enabled' }), MFA_DISABLED_MESSAGE);
+kontrol('2FA kod hatası', translateMfaError({ code: 'mfa_verification_failed' }), MFA_ERROR_MESSAGES.mfa_verification_failed);
+kontrol('2FA kodun süresi doldu', translateMfaError({ message: 'Challenge expired' }), MFA_ERROR_MESSAGES.mfa_challenge_expired);
+kontrol('2FA hata yok', translateMfaError(null), 'İki adımlı doğrulama sırasında bilinmeyen bir hata oluştu.');
 
 // ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');
