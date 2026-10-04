@@ -54,9 +54,14 @@ export default function NotesWall({
     setIsDeleting(true);
 
     try {
-      await deleteNote(deletingNote.id);
+      const sonuc = await deleteNote(deletingNote.id);
       onNoteDeleted(deletingNote.id);
-      showToast('Not panodan kaldırıldı.', 'success');
+      showToast(
+        sonuc?.softDeleted
+          ? 'Not çöp kutusuna taşındı 💌 30 gün içinde geri alabilirsin'
+          : 'Not panodan kaldırıldı.',
+        'success'
+      );
       setDeletingNote(null);
     } catch (err) {
       console.error(err);

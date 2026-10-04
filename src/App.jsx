@@ -241,14 +241,16 @@ export default function App() {
     const benimAdim = displayNameFromSession(session);
 
     const unsubscribe = subscribeToLiveChanges({
-      onDegisim: async ({ tablo, yeni }) => {
+      onDegisim: async ({ tablo, olay, yeni }) => {
         try {
           if (tablo === 'photos') {
             const data = await getPhotos();
             setPhotos(data);
 
+            // Bildirim YALNIZCA yeni kayıt eklendiğinde gösterilir.
+            // (Düzenleme/silme de olay üretir; onlarda "yeni anı ekledi" demek yanlış olur.)
             const ekleyen = yeni?.uploaded_by;
-            if (ekleyen && benimAdim && ekleyen !== benimAdim) {
+            if (olay === 'INSERT' && ekleyen && benimAdim && ekleyen !== benimAdim) {
               const mesaj = `${ekleyen} yeni bir anı ekledi 💖`;
               showToast(mesaj, 'info');
 
@@ -267,7 +269,7 @@ export default function App() {
             setNotes(data);
 
             const yazan = yeni?.sender;
-            if (yazan && benimAdim && yazan !== benimAdim) {
+            if (olay === 'INSERT' && yazan && benimAdim && yazan !== benimAdim) {
               const mesaj = `${yazan} yeni bir aşk notu bıraktı 💌`;
               showToast(mesaj, 'info');
 

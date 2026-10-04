@@ -1029,10 +1029,22 @@ export async function getCounts() {
   const empty = { photos: 0, notes: 0, comments: 0, likes: 0 };
   if (!isSupabaseConfigured) return empty;
 
-  const countOf = async (table) => {
-    const { count, error } = await supabase
-      .from(table)
-      .select('*', { count: 'exact', head: true });
+  const copDestegi = await isTrashAvailable();
+
+  // Çöpteki kayıtlar istatistiklere ve başarımlara SAYILMAZ.
+  const countOf = async (table, copuHaric = false) => {
+    const calistir = async (filtrele) => {
+      let query = supabase.from(table).select('*', { count: 'exact', head: true });
+      if (filtrele) query = query.is('deleted_at', null);
+      return await query;
+    };
+
+    let { count, error } = await calistir(copuHaric && copDestegi);
+
+    if (error && copuHaric && copDestegi) {
+      console.warn(`${table} çöp filtresi uygulanamadı, filtresiz sayılıyor:`, error.message);
+      ({ count, error } = await calistir(false));
+    }
 
     if (error) {
       console.warn(`${table} sayısı alınamadı:`, error.message);
@@ -1042,8 +1054,8 @@ export async function getCounts() {
   };
 
   const [photos, notes, comments, likes] = await Promise.all([
-    countOf('photos'),
-    countOf('notes'),
+    countOf('photos', true),
+    countOf('notes', true),
     countOf('comments'),
     countOf('likes'),
   ]);
@@ -1094,14 +1106,27 @@ export async function getAllDataForBackup() {
 // kendini kapatır ve silme eskisi gibi kalıcı olur (hiçbir şey bozulmaz).
 
 let trashCapabilityCache = null;
+let trashCapabilityCheckedAt = 0;
+
+// Olumsuz sonuç yalnızca kısa süre hatırlanır: böylece geçici bir ağ hatası
+// yüzünden çöp kutusu tüm oturum boyunca kapalı kalmaz (silinen anılar
+// galeride görünmesin diye bu önemli).
+const TRASH_NEGATIVE_TTL_MS = 60 * 1000;
 
 /**
  * Çöp kutusu kullanılabilir mi? (deleted_at sütunu var mı)
- * Sonuç oturum boyunca hatırlanır; her fotoğraf yüklemesinde sorgu yapılmaz.
+ * Olumlu sonuç oturum boyunca hatırlanır; her fotoğraf yüklemesinde sorgu yapılmaz.
  */
 export async function isTrashAvailable() {
   if (!isSupabaseConfigured) return false;
-  if (trashCapabilityCache !== null) return trashCapabilityCache;
+
+  if (trashCapabilityCache === true) return true;
+  if (
+    trashCapabilityCache === false &&
+    Date.now() - trashCapabilityCheckedAt < TRASH_NEGATIVE_TTL_MS
+  ) {
+    return false;
+  }
 
   try {
     const { error } = await supabase.from('photos').select('deleted_at').limit(1);
@@ -1111,6 +1136,7 @@ export async function isTrashAvailable() {
     trashCapabilityCache = false;
   }
 
+  trashCapabilityCheckedAt = Date.now();
   return trashCapabilityCache;
 }
 
