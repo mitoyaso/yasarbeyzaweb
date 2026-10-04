@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getCounts, backfillMissingThumbnails, isLocationAvailable } from '../../lib/supabase';
+import { getCounts, backfillMissingThumbnails, isLocationAvailable, isTrashAvailable, getDeletedPhotos, getDeletedNotes } from '../../lib/supabase';
 import { isQuizAvailable, fetchQuizAnswers, quizProgress } from '../../lib/quiz';
 import QuizModal from './QuizModal';
 import MemoryMap from './MemoryMap';
+import TrashPanel from './TrashPanel';
 import { computeStats, computeAchievements } from '../../lib/achievements';
 import { exportDataOnly, exportFullBackup } from '../../lib/backup';
 import MemoryGame from './MemoryGame';
@@ -28,6 +29,7 @@ import {
   Zap,
   Sparkles,
   Map as MapIcon,
+  Trash2,
 } from 'lucide-react';
 
 const LAST_BACKUP_KEY = 'yasar_beyza_last_backup_v1';
@@ -52,6 +54,7 @@ export default function UsPanel({
   showToast,
   activeSender = 'Yaşar',
   onPhotoPatched,
+  onDataRestored,
 }) {
   const [counts, setCounts] = useState(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -64,6 +67,9 @@ export default function UsPanel({
   const [quizRows, setQuizRows] = useState([]);
   const [locationAvailable, setLocationAvailable] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
+  const [trashAvailable, setTrashAvailable] = useState(false);
+  const [isTrashOpen, setIsTrashOpen] = useState(false);
+  const [trashCount, setTrashCount] = useState(0);
   const [lastBackupAt, setLastBackupAt] = useState(() => localStorage.getItem(LAST_BACKUP_KEY));
   // Yaş hesaplaması için "şimdi" değeri bir kez alınır (render sırasında impure çağrı olmasın)
   const [nowTs] = useState(() => Date.now());
@@ -137,6 +143,37 @@ export default function UsPanel({
         if (!cancelled && ok) setLocationAvailable(true);
       })
       .catch((err) => console.warn('Konum özelliği kontrolü başarısız:', err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Çöp kutusu yalnızca deleted_at sütunu varsa gösterilir.
+  const refreshTrashCount = useCallback(async () => {
+    try {
+      const [silinenFotolar, silinenNotlar] = await Promise.all([
+        getDeletedPhotos(),
+        getDeletedNotes(),
+      ]);
+      setTrashCount(silinenFotolar.length + silinenNotlar.length);
+    } catch (err) {
+      console.warn('Çöp kutusu sayısı okunamadı:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    isTrashAvailable()
+      .then((ok) => {
+        if (cancelled || !ok) return undefined;
+        setTrashAvailable(true);
+        return Promise.all([getDeletedPhotos(), getDeletedNotes()]).then(([foto, not]) => {
+          if (!cancelled) setTrashCount(foto.length + not.length);
+        });
+      })
+      .catch((err) => console.warn('Çöp kutusu kontrolü başarısız:', err));
 
     return () => {
       cancelled = true;
@@ -567,6 +604,37 @@ export default function UsPanel({
         </div>
       </div>
 
+      {/* Çöp Kutusu */}
+      {trashAvailable && (
+        <div>
+          <h3 className="text-base sm:text-lg font-bold text-rose-950 font-serif mb-3 flex items-center gap-2">
+            <Trash2 className="w-4 h-4 text-rose-500" />
+            Çöp Kutusu
+          </h3>
+
+          <div className="glass-card rounded-3xl p-5 border border-rose-200/70 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="font-bold text-sm text-rose-950 mb-0.5">
+                {trashCount === 0 ? 'Çöp kutusu boş' : `${trashCount} kayıt bekliyor`}
+              </p>
+              <p className="text-[11px] text-rose-600/85 leading-relaxed">
+                Silinen anılar ve notlar 30 gün boyunca burada durur; dilediğin an geri
+                getirebilirsin.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setIsTrashOpen(true)}
+              className="shrink-0 py-2.5 px-4 rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50 transition flex items-center gap-1.5 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Aç</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Güvenlik */}
       <SecurityPanel showToast={showToast} />
 
@@ -599,6 +667,20 @@ export default function UsPanel({
           showToast={showToast}
           onPhotoUpdated={onPhotoPatched}
           onClose={() => setIsMapOpen(false)}
+        />
+      )}
+
+      {isTrashOpen && (
+        <TrashPanel
+          showToast={showToast}
+          onClose={() => {
+            setIsTrashOpen(false);
+            refreshTrashCount();
+          }}
+          onRestored={() => {
+            refreshTrashCount();
+            if (onDataRestored) onDataRestored();
+          }}
         />
       )}
     </div>

@@ -38,6 +38,14 @@ import {
   groupByLocation,
   TURKIYE_MERKEZ,
 } from '../src/lib/geo.js';
+import {
+  daysLeftInTrash,
+  isTrashExpired,
+  trashStats,
+  daysLeftLabel,
+  sortTrash,
+  TRASH_RETENTION_DAYS,
+} from '../src/lib/trashCore.js';
 
 let toplamTest = 0;
 let basarisiz = 0;
@@ -252,6 +260,44 @@ kontrol('etiket: konum yoksa', locationLabel({ id: 'z' }), 'Konum yok');
 const haritaGruplar = groupByLocation(haritaFotolar);
 kontrol('konum grubu sayısı', haritaGruplar.length, 3);
 kontrol('grup etiketleri', haritaGruplar.map((g) => g.etiket), ['İstanbul', '38.600, 34.800', '40.000, 30.000']);
+
+// ==============================================================================
+bolum('ÇÖP KUTUSU — SAKLAMA SÜRESİ');
+// ==============================================================================
+const simdi = new Date(2026, 9, 5, 12, 0, 0).getTime(); // 5 Ekim 2026, 12:00
+const gunOnce = (n) => new Date(simdi - n * 24 * 60 * 60 * 1000).toISOString();
+
+kontrol('saklama süresi 30 gün', TRASH_RETENTION_DAYS, 30);
+kontrol('bugün silindi → 30 gün', daysLeftInTrash(gunOnce(0), simdi), 30);
+kontrol('10 gün önce → 20 gün', daysLeftInTrash(gunOnce(10), simdi), 20);
+kontrol('29 gün önce → 1 gün', daysLeftInTrash(gunOnce(29), simdi), 1);
+kontrol('30 gün önce → süre doldu', daysLeftInTrash(gunOnce(30), simdi), 0);
+kontrol('40 gün önce → negatif olmaz', daysLeftInTrash(gunOnce(40), simdi), 0);
+kontrol('tarih yoksa tam süre', daysLeftInTrash(null, simdi), 30);
+kontrol('bozuk tarih → tam süre', daysLeftInTrash('abc', simdi), 30);
+
+kontrol('süresi doldu (31 gün)', isTrashExpired(gunOnce(31), simdi), true);
+kontrol('süresi dolmadı (5 gün)', isTrashExpired(gunOnce(5), simdi), false);
+kontrol('tarih yoksa dolmamış sayılır', isTrashExpired(null, simdi), false);
+
+kontrol('etiket: 5 gün kaldı', daysLeftLabel(gunOnce(25), simdi), '5 gün kaldı');
+kontrol('etiket: son 1 gün', daysLeftLabel(gunOnce(29), simdi), 'Son 1 gün');
+kontrol('etiket: süresi doldu', daysLeftLabel(gunOnce(35), simdi), 'Süresi doldu');
+
+const copOzet = trashStats(
+  [{ deleted_at: gunOnce(1) }, { deleted_at: gunOnce(35) }, { deleted_at: gunOnce(10) }],
+  simdi
+);
+kontrol('çöpteki toplam kayıt', copOzet.toplam, 3);
+kontrol('süresi geçen kayıt', copOzet.suresiGecen, 1);
+kontrol('boş çöp kutusu', trashStats([], simdi), { toplam: 0, suresiGecen: 0 });
+
+const copSirali = sortTrash([
+  { id: 'a', deleted_at: gunOnce(10) },
+  { id: 'b', deleted_at: gunOnce(1) },
+  { id: 'c', deleted_at: gunOnce(5) },
+]);
+kontrol('en son silinen başta', copSirali.map((x) => x.id), ['b', 'c', 'a']);
 
 // ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');

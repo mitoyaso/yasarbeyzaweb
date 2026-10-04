@@ -39,9 +39,15 @@ export default function PhotoGallery({
     setIsDeleting(true);
 
     try {
-      await deletePhoto(deletingPhoto);
+      const sonuc = await deletePhoto(deletingPhoto);
       onPhotoDeleted(deletingPhoto.id);
-      showToast('Anı fotoğrafı başarıyla silindi 🌸', 'success');
+
+      showToast(
+        sonuc?.softDeleted
+          ? 'Anı çöp kutusuna taşındı 🌸 30 gün içinde geri alabilirsin'
+          : 'Anı fotoğrafı kalıcı olarak silindi 🌸',
+        'success'
+      );
       setDeletingPhoto(null);
     } catch (err) {
       console.error(err);
@@ -233,7 +239,7 @@ export default function PhotoGallery({
         isOpen={Boolean(deletingPhoto)}
         title="Anıyı Sil"
         message="Bu anıyı silmek istediğine emin misin?"
-        subtext="Bu işlem geri alınamaz. Fotoğraf hem Supabase Storage depolama alanından hem de veritabanından kalıcı olarak kaldırılacaktır."
+        subtext="Fotoğraf albümden kaldırılır. Çöp kutusu etkinse 30 gün içinde geri getirebilirsin; oradan kalıcı olarak silinirse geri alınamaz."
         confirmText="Evet, Sil"
         cancelText="Vazgeç"
         onConfirm={handleConfirmDelete}

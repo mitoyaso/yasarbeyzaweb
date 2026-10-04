@@ -188,11 +188,16 @@ export default function App() {
     }
   }, []);
 
+  // Çöp kutusundan geri getirme sonrası verileri tazele
+  const handleDataRestored = useCallback(() => {
+    fetchPhotos();
+    fetchNotes();
+  }, [fetchPhotos, fetchNotes]);
+
   useEffect(() => {
     let isCancelled = false;
 
-    if (isAuthenticated) {
-      getPhotos()
+    if (isAuthenticated) {      getPhotos()
         .then((data) => {
           if (!isCancelled) {
             setPhotos(data);
@@ -446,6 +451,7 @@ export default function App() {
                 prev.map((item) => (item.id === photoId ? { ...item, ...patch } : item))
               )
             }
+            onDataRestored={handleDataRestored}
           />
         )}
       </main>

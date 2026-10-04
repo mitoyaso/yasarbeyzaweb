@@ -187,10 +187,22 @@ export async function getPhotos() {
     return getLocalDemoData(STORAGE_KEYS.DEMO_PHOTOS, DEFAULT_DEMO_PHOTOS);
   }
 
-  const { data, error } = await supabase
-    .from('photos')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const copDestegi = await isTrashAvailable();
+
+  const sorgu = (filtrele) => {
+    let q = supabase.from('photos').select('*').order('created_at', { ascending: false });
+    if (filtrele) q = q.is('deleted_at', null);
+    return q;
+  };
+
+  let { data, error } = await sorgu(copDestegi);
+
+  // Çöp kutusu filtresi sorun çıkarırsa filtresiz devam et: galeri asla
+  // boş görünmesin (güvenli taraf).
+  if (error && copDestegi) {
+    console.warn('Çöp kutusu filtresi uygulanamadı, filtresiz devam ediliyor:', error.message);
+    ({ data, error } = await sorgu(false));
+  }
 
   if (error) {
     console.error('Fotoğraflar getirilirken hata oluştu:', error);
@@ -317,6 +329,12 @@ export async function uploadPhoto({ file, caption, uploadedBy }) {
 /**
  * Fotoğrafı sil (Hem Supabase Storage'dan hem de Veritabanından)
  */
+/**
+ * Fotoğrafı siler.
+ * Çöp kutusu destekleniyorsa kayıt yalnızca işaretlenir (30 gün geri alınabilir),
+ * dosyalar korunur. Desteklenmiyorsa eskisi gibi kalıcı olarak silinir.
+ * @returns {Promise<{softDeleted: boolean}>}
+ */
 export async function deletePhoto(photo) {
   if (!photo?.id) throw new Error('Silinecek fotoğraf bulunamadı.');
 
@@ -324,10 +342,33 @@ export async function deletePhoto(photo) {
     const currentPhotos = getLocalDemoData(STORAGE_KEYS.DEMO_PHOTOS, DEFAULT_DEMO_PHOTOS);
     const updated = currentPhotos.filter((p) => p.id !== photo.id);
     setLocalDemoData(STORAGE_KEYS.DEMO_PHOTOS, updated);
-    return true;
+    return { softDeleted: false };
   }
 
-  // 1. Supabase Storage'dan dosyayı (ve varsa thumbnail'ini) sil
+  // 1) Çöp kutusu varsa yalnızca işaretle (dosyalar silinmez, geri alınabilir)
+  if (await isTrashAvailable()) {
+    const { error } = await supabase
+      .from('photos')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', photo.id);
+
+    if (!error) return { softDeleted: true };
+
+    console.warn('Anı çöpe taşınamadı, kalıcı silme denenecek:', error.message);
+  }
+
+  // 2) Kalıcı silme
+  await purgePhoto(photo);
+  return { softDeleted: false };
+}
+
+/**
+ * Fotoğrafı KALICI olarak siler (hem Storage dosyaları hem veritabanı kaydı).
+ * Çöp kutusundan "kalıcı sil" dendiğinde de bu kullanılır.
+ */
+export async function purgePhoto(photo) {
+  if (!photo?.id) throw new Error('Silinecek fotoğraf bulunamadı.');
+
   if (photo.storage_path) {
     const pathsToRemove = [photo.storage_path];
     const thumbPath = thumbPathFor(photo.storage_path);
@@ -342,11 +383,7 @@ export async function deletePhoto(photo) {
     }
   }
 
-  // 2. Veritabanındaki 'photos' kaydını sil
-  const { error: dbError } = await supabase
-    .from('photos')
-    .delete()
-    .eq('id', photo.id);
+  const { error: dbError } = await supabase.from('photos').delete().eq('id', photo.id);
 
   if (dbError) {
     console.error('Fotoğraf silme hatası:', dbError);
@@ -705,10 +742,20 @@ export async function getNotes() {
     return getLocalDemoData(STORAGE_KEYS.DEMO_NOTES, DEFAULT_DEMO_NOTES);
   }
 
-  const { data, error } = await supabase
-    .from('notes')
-    .select('*')
-    .order('created_at', { ascending: false });
+  const copDestegi = await isTrashAvailable();
+
+  const sorgu = (filtrele) => {
+    let q = supabase.from('notes').select('*').order('created_at', { ascending: false });
+    if (filtrele) q = q.is('deleted_at', null);
+    return q;
+  };
+
+  let { data, error } = await sorgu(copDestegi);
+
+  if (error && copDestegi) {
+    console.warn('Çöp kutusu filtresi uygulanamadı, filtresiz devam ediliyor:', error.message);
+    ({ data, error } = await sorgu(false));
+  }
 
   if (error) {
     console.error('Notlar getirilirken hata:', error);
@@ -758,10 +805,12 @@ export async function addNote({ sender, content }) {
 }
 
 /**
- * Not sil
+ * Not siler.
+ * Çöp kutusu destekleniyorsa yalnızca işaretlenir (30 gün geri alınabilir).
+ * @returns {Promise<{softDeleted: boolean}>}
  */
 export async function deleteNote(noteId) {
-  if (!noteId) return;
+  if (!noteId) return { softDeleted: false };
 
   if (!isSupabaseConfigured) {
     const all = getLocalDemoData(STORAGE_KEYS.DEMO_NOTES, DEFAULT_DEMO_NOTES);
@@ -769,13 +818,31 @@ export async function deleteNote(noteId) {
       STORAGE_KEYS.DEMO_NOTES,
       all.filter((n) => n.id !== noteId)
     );
-    return true;
+    return { softDeleted: false };
   }
 
-  const { error } = await supabase
-    .from('notes')
-    .delete()
-    .eq('id', noteId);
+  if (await isTrashAvailable()) {
+    const { error } = await supabase
+      .from('notes')
+      .update({ deleted_at: new Date().toISOString() })
+      .eq('id', noteId);
+
+    if (!error) return { softDeleted: true };
+
+    console.warn('Not çöpe taşınamadı, kalıcı silme denenecek:', error.message);
+  }
+
+  await purgeNote(noteId);
+  return { softDeleted: false };
+}
+
+/**
+ * Notu KALICI olarak siler.
+ */
+export async function purgeNote(noteId) {
+  if (!noteId) return false;
+
+  const { error } = await supabase.from('notes').delete().eq('id', noteId);
 
   if (error) {
     console.error('Not silme hatası:', error);
@@ -789,7 +856,8 @@ export async function deleteNote(noteId) {
  * Tek bir dosya için imzalı (süreli) adres üretir.
  * Yedekleme indirmesi gibi uygulama dışı kullanımlar için.
  */
-export async function createPhotoSignedUrl(storagePath, expiresIn = 600) {  if (!isSupabaseConfigured || !storagePath) return null;
+export async function createPhotoSignedUrl(storagePath, expiresIn = 600) {
+  if (!isSupabaseConfigured || !storagePath) return null;
 
   const { data, error } = await supabase.storage
     .from(SUPABASE_BUCKET_NAME)
@@ -1017,4 +1085,109 @@ export async function getAllDataForBackup() {
   ]);
 
   return { notes, photos, comments, likes };
+}
+
+// ==============================================================================
+// ÇÖP KUTUSU (GERİ ALINABİLİR SİLME)
+// ==============================================================================
+// deleted_at sütunu Faz 3 SQL betiğiyle eklenir. Sütun yoksa bu özellik
+// kendini kapatır ve silme eskisi gibi kalıcı olur (hiçbir şey bozulmaz).
+
+let trashCapabilityCache = null;
+
+/**
+ * Çöp kutusu kullanılabilir mi? (deleted_at sütunu var mı)
+ * Sonuç oturum boyunca hatırlanır; her fotoğraf yüklemesinde sorgu yapılmaz.
+ */
+export async function isTrashAvailable() {
+  if (!isSupabaseConfigured) return false;
+  if (trashCapabilityCache !== null) return trashCapabilityCache;
+
+  try {
+    const { error } = await supabase.from('photos').select('deleted_at').limit(1);
+    trashCapabilityCache = !error;
+  } catch (err) {
+    console.warn('Çöp kutusu kontrol edilemedi:', err);
+    trashCapabilityCache = false;
+  }
+
+  return trashCapabilityCache;
+}
+
+/**
+ * Çöpteki fotoğrafları getirir (en son silinen başta).
+ */
+export async function getDeletedPhotos() {
+  if (!isSupabaseConfigured || !(await isTrashAvailable())) return [];
+
+  const { data, error } = await supabase
+    .from('photos')
+    .select('*')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+
+  if (error) {
+    console.error('Çöp kutusu okunamadı:', error);
+    throw new Error('Çöp kutusu okunamadı: ' + error.message);
+  }
+
+  return withSignedPhotoUrls(data || []);
+}
+
+/**
+ * Çöpteki notları getirir.
+ */
+export async function getDeletedNotes() {
+  if (!isSupabaseConfigured || !(await isTrashAvailable())) return [];
+
+  const { data, error } = await supabase
+    .from('notes')
+    .select('*')
+    .not('deleted_at', 'is', null)
+    .order('deleted_at', { ascending: false });
+
+  if (error) {
+    console.error('Çöp kutusu (notlar) okunamadı:', error);
+    throw new Error('Çöp kutusu okunamadı: ' + error.message);
+  }
+
+  return data || [];
+}
+
+/**
+ * Çöpteki bir fotoğrafı geri getirir.
+ */
+export async function restorePhoto(photoId) {
+  if (!photoId) throw new Error('Geri getirilecek anı bulunamadı.');
+
+  const { error } = await supabase
+    .from('photos')
+    .update({ deleted_at: null })
+    .eq('id', photoId);
+
+  if (error) {
+    console.error('Anı geri getirme hatası:', error);
+    throw new Error('Anı geri getirilemedi: ' + error.message);
+  }
+
+  return true;
+}
+
+/**
+ * Çöpteki bir notu geri getirir.
+ */
+export async function restoreNote(noteId) {
+  if (!noteId) throw new Error('Geri getirilecek not bulunamadı.');
+
+  const { error } = await supabase
+    .from('notes')
+    .update({ deleted_at: null })
+    .eq('id', noteId);
+
+  if (error) {
+    console.error('Not geri getirme hatası:', error);
+    throw new Error('Not geri getirilemedi: ' + error.message);
+  }
+
+  return true;
 }
