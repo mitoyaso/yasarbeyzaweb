@@ -30,3 +30,13 @@ github_yukle.bat
 .env.development.local
 .env.production.local
 
+# ------------------------------------------------------------------------------
+# EROS — ÖZEL VERİLER (ASLA GitHub'a yüklenmez)
+# ------------------------------------------------------------------------------
+# WhatsApp konuşma dökümleri, Eros'un hafıza profili, üretilen özetler...
+# Bu klasördeki her şey gizli kalır; yalnızca kılavuz dosyası repoya girer.
+eros-data/*
+!eros-data/OKU-BENI.md
+*.whatsapp.txt
+eros-profile*.md
+
