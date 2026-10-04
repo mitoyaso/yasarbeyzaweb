@@ -19,6 +19,14 @@ import {
   MFA_ERROR_MESSAGES,
   MFA_DISABLED_MESSAGE,
 } from '../src/lib/authMessages.js';
+import {
+  computeQuizScore,
+  quizProgress,
+  normalizeAnswer,
+  selfKey,
+  guessKey,
+  QUIZ_QUESTIONS,
+} from '../src/lib/quizCore.js';
 
 let toplamTest = 0;
 let basarisiz = 0;
@@ -134,6 +142,67 @@ kontrol('2FA panelde kapalı', translateMfaError({ message: 'MFA is not enabled'
 kontrol('2FA kod hatası', translateMfaError({ code: 'mfa_verification_failed' }), MFA_ERROR_MESSAGES.mfa_verification_failed);
 kontrol('2FA kodun süresi doldu', translateMfaError({ message: 'Challenge expired' }), MFA_ERROR_MESSAGES.mfa_challenge_expired);
 kontrol('2FA hata yok', translateMfaError(null), 'İki adımlı doğrulama sırasında bilinmeyen bir hata oluştu.');
+
+// ==============================================================================
+bolum('BİRBİRİNİ TANIMA TESTİ — NORMALİZASYON VE PUANLAMA');
+// ==============================================================================
+kontrol('büyük/küçük harf farkı yok sayılır', normalizeAnswer('PİZZA'), normalizeAnswer('pizza'));
+kontrol('noktalama farkı yok sayılır', normalizeAnswer('Pizza!'), normalizeAnswer('pizza'));
+kontrol('fazla boşluk sadeleşir', normalizeAnswer('  çok   güzel '), 'çok güzel');
+kontrol('boş değer → boş metin', normalizeAnswer(null), '');
+
+kontrol('kendi cevap anahtarı', selfKey('q1'), 'q1#oz');
+kontrol('tahmin anahtarı', guessKey('q1'), 'q1#tahmin');
+
+const quizSatirlari = [
+  { question_key: 'q1#oz', sender: 'Beyza', answer: 'Pizza' },
+  { question_key: 'q1#tahmin', sender: 'Yaşar', answer: 'pizza!' },
+  { question_key: 'q1#oz', sender: 'Yaşar', answer: 'Mantı' },
+  { question_key: 'q1#tahmin', sender: 'Beyza', answer: 'Kebap' },
+];
+const quizSkor = computeQuizScore(quizSatirlari);
+kontrol('Yaşar 1 puan (normalize eşleşme)', quizSkor.yasarScore, 1);
+kontrol('Beyza 0 puan (yanlış tahmin)', quizSkor.beyzaScore, 0);
+kontrol('toplam soru sayısı', quizSkor.total, QUIZ_QUESTIONS.length);
+kontrol('q1 Yaşar doğru', quizSkor.perQuestion[0].yasarDogru, true);
+kontrol('q1 Beyza yanlış', quizSkor.perQuestion[0].beyzaDogru, false);
+kontrol('cevapsız sorular yanlış sayılır', quizSkor.perQuestion[1].yasarDogru, false);
+
+const quizKarsilikli = computeQuizScore([
+  { question_key: 'q2#oz', sender: 'Beyza', answer: 'Kahve' },
+  { question_key: 'q2#tahmin', sender: 'Yaşar', answer: 'kahve' },
+  { question_key: 'q2#oz', sender: 'Yaşar', answer: 'Deniz' },
+  { question_key: 'q2#tahmin', sender: 'Beyza', answer: 'deniz' },
+]);
+kontrol('karşılıklı doğru → Yaşar 1', quizKarsilikli.yasarScore, 1);
+kontrol('karşılıklı doğru → Beyza 1', quizKarsilikli.beyzaScore, 1);
+
+const quizBos = computeQuizScore([]);
+kontrol('hiç cevap yoksa puan 0', quizBos.yasarScore + quizBos.beyzaScore, 0);
+
+const quizBozuk = computeQuizScore([null, {}, { question_key: 'q1#oz' }, { sender: 'Yaşar' }]);
+kontrol('bozuk satırlar çökertmez', quizBozuk.yasarScore + quizBozuk.beyzaScore, 0);
+
+const quizIlerleme = quizProgress(
+  [
+    { question_key: 'q1#oz', sender: 'Yaşar', answer: 'a' },
+    { question_key: 'q1#tahmin', sender: 'Yaşar', answer: 'b' },
+    { question_key: 'q2#oz', sender: 'Yaşar', answer: 'c' },
+    { question_key: 'q3#oz', sender: 'Beyza', answer: 'd' },
+  ],
+  'Yaşar'
+);
+kontrol('tamamlanan soru (ikisi de girilmiş)', quizIlerleme.tamamlanan, 1);
+kontrol('ilerleme toplamı', quizIlerleme.toplam, 10);
+
+const quizIlerleme2 = quizProgress(
+  [
+    { question_key: 'q1#oz', sender: 'Yaşar', answer: '   ' },
+    { question_key: 'q1#tahmin', sender: 'Yaşar', answer: 'b' },
+  ],
+  'Yaşar'
+);
+kontrol('sadece boşluk → cevap sayılmaz', quizIlerleme2.tamamlanan, 0);
 
 // ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');

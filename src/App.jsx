@@ -436,7 +436,12 @@ export default function App() {
         )}
 
         {activeTab === 'us' && (
-          <UsPanel photos={photos} notes={notes} showToast={showToast} />
+          <UsPanel
+            photos={photos}
+            notes={notes}
+            showToast={showToast}
+            activeSender={activeSender}
+          />
         )}
       </main>
 

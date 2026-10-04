@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCounts, backfillMissingThumbnails } from '../../lib/supabase';
+import { isQuizAvailable, fetchQuizAnswers, quizProgress } from '../../lib/quiz';
+import QuizModal from './QuizModal';
 import { computeStats, computeAchievements } from '../../lib/achievements';
 import { exportDataOnly, exportFullBackup } from '../../lib/backup';
 import MemoryGame from './MemoryGame';
@@ -23,6 +25,7 @@ import {
   Loader2,
   ShieldCheck,
   Zap,
+  Sparkles,
 } from 'lucide-react';
 
 const LAST_BACKUP_KEY = 'yasar_beyza_last_backup_v1';
@@ -41,13 +44,16 @@ function formatDateTime(isoString) {
   });
 }
 
-export default function UsPanel({ photos = [], notes = [], showToast }) {
+export default function UsPanel({ photos = [], notes = [], showToast, activeSender = 'Yaşar' }) {
   const [counts, setCounts] = useState(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isGameOpen, setIsGameOpen] = useState(false);
   const [isMovieOpen, setIsMovieOpen] = useState(false);
   const [backup, setBackup] = useState({ running: false, message: '' });
   const [thumbs, setThumbs] = useState({ running: false, message: '' });
+  const [quizAvailable, setQuizAvailable] = useState(false);
+  const [isQuizOpen, setIsQuizOpen] = useState(false);
+  const [quizRows, setQuizRows] = useState([]);
   const [lastBackupAt, setLastBackupAt] = useState(() => localStorage.getItem(LAST_BACKUP_KEY));
   // Yaş hesaplaması için "şimdi" değeri bir kez alınır (render sırasında impure çağrı olmasın)
   const [nowTs] = useState(() => Date.now());
@@ -84,12 +90,46 @@ export default function UsPanel({ photos = [], notes = [], showToast }) {
     };
   }, []);
 
+  // Quiz bölümü yalnızca quiz_answers tablosu varsa gösterilir
+  // (Faz 3 SQL'i çalıştırılmadıysa bölüm tamamen gizli kalır).
+  const refreshQuiz = useCallback(async () => {
+    try {
+      setQuizRows(await fetchQuizAnswers());
+    } catch (err) {
+      console.warn('Quiz cevapları okunamadı:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    isQuizAvailable()
+      .then((ok) => {
+        if (cancelled || !ok) return undefined;
+        setQuizAvailable(true);
+        return fetchQuizAnswers().then((rows) => {
+          if (!cancelled) setQuizRows(rows);
+        });
+      })
+      .catch((err) => console.warn('Quiz kontrolü başarısız:', err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const stats = useMemo(
     () => computeStats({ counts: counts ?? {}, photos, notes }),
     [counts, photos, notes]
   );
+
   const achievements = useMemo(() => computeAchievements(stats), [stats]);
   const unlockedCount = achievements.filter((item) => item.unlocked).length;
+
+  const quizDurum = useMemo(
+    () => quizProgress(quizRows, activeSender),
+    [quizRows, activeSender]
+  );
 
   const backupAge = useMemo(() => {
     if (!lastBackupAt) return null;
@@ -367,6 +407,23 @@ export default function UsPanel({ photos = [], notes = [], showToast }) {
               Anılarınız tam ekran slayt gösterisi olsun. Kendi şarkınızı da seçebilirsiniz.
             </p>
           </button>
+
+          {quizAvailable && (
+            <button
+              type="button"
+              onClick={() => setIsQuizOpen(true)}
+              className="glass-card glass-card-hover rounded-3xl p-5 border border-rose-200/70 text-left cursor-pointer"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-amber-400 to-rose-500 flex items-center justify-center text-white shadow-md mb-3">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <p className="font-bold text-rose-950 mb-0.5">Birbirini Tanıma Testi</p>
+              <p className="text-[11px] sm:text-xs text-rose-600/80 leading-relaxed">
+                {quizDurum.tamamlanan}/{quizDurum.toplam} soru tamamlandı · Tahminlerin
+                eşleşirse puan kazanırsın.
+              </p>
+            </button>
+          )}
         </div>
       </div>
 
@@ -484,6 +541,16 @@ export default function UsPanel({ photos = [], notes = [], showToast }) {
       )}
 
       {isMovieOpen && <MovieMode photos={photos} onClose={() => setIsMovieOpen(false)} />}
+
+      {isQuizOpen && (
+        <QuizModal
+          sender={activeSender}
+          onClose={() => {
+            setIsQuizOpen(false);
+            refreshQuiz();
+          }}
+        />
+      )}
     </div>
   );
 }
