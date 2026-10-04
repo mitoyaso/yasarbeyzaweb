@@ -34,10 +34,9 @@ export default function App() {
   // İki adımlı doğrulama (2FA) gerekiyor mu? (hesabında 2FA açıksa true)
   const [mfaRequired, setMfaRequired] = useState(false);
 
-  // Aktif Gönderen (Yaşar veya Beyza)
-  const [activeSender, setActiveSender] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.ACTIVE_SENDER) || SENDERS.YASAR;
-  });
+  // Aktif Gönderen: GİRİŞ YAPILAN HESABA göre belirlenir (Yaşar veya Beyza).
+  // Artık kullanıcı tarafından değiştirilemez; hangi hesapla girildiyse öyle kalır.
+  const activeSender = displayNameFromSession(session) || SENDERS.YASAR;
 
   // Aktif Sekme ('photos' | 'notes' | 'counter')
   const [activeTab, setActiveTab] = useState('photos');
@@ -73,12 +72,6 @@ export default function App() {
       setSession(restored);
 
       if (restored) {
-        const name = displayNameFromSession(restored);
-        if (name) {
-          setActiveSender(name);
-          localStorage.setItem(STORAGE_KEYS.ACTIVE_SENDER, name);
-        }
-
         // Hesabında 2FA açıksa oturum henüz tam doğrulanmamıştır (aal1).
         try {
           const needsChallenge = await isMfaChallengeRequired();
@@ -104,12 +97,6 @@ export default function App() {
   // Giriş Başarılı Olduğunda
   const handleLoginSuccess = async (newSession) => {
     setSession(newSession ?? null);
-
-    const name = displayNameFromSession(newSession);
-    if (name) {
-      setActiveSender(name);
-      localStorage.setItem(STORAGE_KEYS.ACTIVE_SENDER, name);
-    }
 
     // Hesabında 2FA açıksa ikinci adım (kod) istenir.
     try {
@@ -146,13 +133,6 @@ export default function App() {
     setNotes([]);
     setIsLoadingPhotos(true);
     setIsLoadingNotes(true);
-  };
-
-  // Göndereni Değiştir
-  const handleToggleSender = (newSender) => {
-    setActiveSender(newSender);
-    localStorage.setItem(STORAGE_KEYS.ACTIVE_SENDER, newSender);
-    showToast(`Aktif Gönderen: ${newSender} olarak ayarlandı ✨`, 'info');
   };
 
   // Toast Bildirimi Göster
@@ -369,7 +349,6 @@ export default function App() {
       {/* Üst Gezinme Çubuğu */}
       <Navbar
         activeSender={activeSender}
-        onToggleSender={handleToggleSender}
         onLogout={handleLogout}
         onOpenConfigInfo={() => setShowConfigModal(true)}
       />
@@ -502,8 +481,6 @@ export default function App() {
       <BottomNav
         activeTab={activeTab}
         onSelectTab={setActiveTab}
-        activeSender={activeSender}
-        onToggleSender={handleToggleSender}
       />
 
       {/* Supabase Bilgilendirme ve Kurulum Modalı */}

@@ -5,7 +5,6 @@ import { Heart, LogOut, Database } from 'lucide-react';
 
 export default function Navbar({
   activeSender,
-  onToggleSender,
   onLogout,
   onOpenConfigInfo,
 }) {
@@ -57,34 +56,18 @@ export default function Navbar({
             <span>{isSupabaseConfigured ? 'Supabase Bağlı' : 'Demo Modu'}</span>
           </button>
 
-          {/* Aktif Gönderen Seçici Buton / Rozet */}
-          <div className="relative flex items-center p-1 rounded-2xl bg-rose-100/70 border border-rose-200/90 shadow-inner">
-            <button
-              type="button"
-              onClick={() => onToggleSender(SENDERS.YASAR)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                isYasar
-                  ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-md shadow-blue-500/25 scale-[1.02]'
-                  : 'text-rose-700 hover:text-blue-700'
-              }`}
-            >
-              <span>👨‍🦱</span>
-              <span className="hidden xs:inline">Yaşar</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => onToggleSender(SENDERS.BEYZA)}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
-                !isYasar
-                  ? 'bg-gradient-to-r from-rose-500 to-pink-500 text-white shadow-md shadow-rose-500/25 scale-[1.02]'
-                  : 'text-rose-700 hover:text-rose-900'
-              }`}
-            >
-              <span>👩‍🦰</span>
-              <span className="hidden xs:inline">Beyza</span>
-            </button>
-          </div>
+          {/* Giriş yapan kişi — SEÇİLEMEZ, hesaba göre belirlenir */}
+          <span
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-2xl text-xs sm:text-sm font-bold border ${
+              isYasar
+                ? 'bg-blue-50 text-blue-700 border-blue-200'
+                : 'bg-rose-50 text-rose-700 border-rose-200'
+            }`}
+            title="Gönderen kişi, giriş yaptığın hesaba göre belirlenir"
+          >
+            <span>{isYasar ? '👨‍🦱' : '👩‍🦰'}</span>
+            <span>{activeSender}</span>
+          </span>
 
           {/* Çıkış Yap Butonu */}
           <button

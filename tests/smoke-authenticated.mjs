@@ -70,6 +70,12 @@ kontrol('Giriş ekranı GÖRÜNMÜYOR (oturum kabul edildi)', !icerik.includes('
 kontrol('Üst çubuk (Navbar) çizildi', icerik.includes('Sonsuz Anılar'));
 kontrol('Anılar sekmesi ve galeri başlığı', icerik.includes('Aşk Albümümüz'));
 kontrol('Sahte anı yüklendi', icerik.includes('Test anısı 1'));
+// Kullanıcı isteği: gönderen kişi hesaba göre belirlenir, seçilemez.
+kontrol('Gönderen rozeti görünüyor (hesaptan geliyor)', icerik.includes('Yaşar'));
+kontrol(
+  'Gönderen değiştirici KALDIRILDI',
+  !document.querySelector('[title="Göndereni Değiştir"]') && !icerik.includes('Aktif Gönderen')
+);
 
 console.log('\n2) BİZİM KÖŞEMİZ SEKMESİ');
 tikla(document, 'Bizim Köşemiz');

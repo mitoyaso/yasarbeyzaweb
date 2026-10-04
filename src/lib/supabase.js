@@ -525,11 +525,11 @@ export async function deleteComment(commentId) {
 
 /**
  * Bir fotoğrafın beğeni bilgilerini getir (toplam sayı + aktif kullanıcı beğenmiş mi)
+ * @param {string} photoId
+ * @param {string} sender Giriş yapan kişi ("Yaşar" / "Beyza"); hesaba göre gelir.
  */
-export async function getLikes(photoId) {
+export async function getLikes(photoId, sender = 'Yaşar') {
   if (!photoId) return { likes: [], likedByMe: false, total: 0 };
-
-  const sender = localStorage.getItem(STORAGE_KEYS.ACTIVE_SENDER) || 'Yaşar';
 
   if (!isSupabaseConfigured) {
     const all = getLocalDemoData(STORAGE_KEYS.DEMO_LIKES, DEFAULT_DEMO_LIKES);

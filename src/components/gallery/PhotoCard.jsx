@@ -26,7 +26,7 @@ export default function PhotoCard({
     async function load() {
       setIsLoadingLikes(true);
       try {
-        const data = await getLikes(photo.id);
+        const data = await getLikes(photo.id, activeSender);
         if (mounted) {
           setIsLiked(data.likedByMe);
           setLikeCount(data.total);
