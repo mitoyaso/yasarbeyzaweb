@@ -12,16 +12,20 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const PROFIL = path.resolve('eros-data/eros-profile.md');
+const PROFIL_DOSYALARI = [
+  path.resolve('eros-data/eros-profile.md'),
+  path.resolve('eros-data/dokum-taramasi.md'),
+];
 const SEMA = path.resolve('supabase/migrations/20261007_eros_memory.sql');
 const CIKTI = path.resolve('eros-data/eros-memory.sql');
 
-if (!fs.existsSync(PROFIL)) {
-  console.error(`Profil bulunamadı: ${PROFIL}`);
+const eksik = PROFIL_DOSYALARI.filter((dosya) => !fs.existsSync(dosya));
+if (eksik.length > 0) {
+  console.error(`Profil bulunamadı: ${eksik.join(', ')}`);
   process.exit(1);
 }
 
-const metin = fs.readFileSync(PROFIL, 'utf8');
+const metin = PROFIL_DOSYALARI.map((dosya) => fs.readFileSync(dosya, 'utf8')).join('\n\n');
 
 // "## Başlık" bloklarına ayır
 const bloklar = [];
