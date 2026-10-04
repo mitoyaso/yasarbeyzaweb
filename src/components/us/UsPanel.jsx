@@ -4,6 +4,7 @@ import { computeStats, computeAchievements } from '../../lib/achievements';
 import { exportDataOnly, exportFullBackup } from '../../lib/backup';
 import MemoryGame from './MemoryGame';
 import MovieMode from './MovieMode';
+import SecurityPanel from './SecurityPanel';
 import {
   Camera,
   MessageSquareHeart,
@@ -405,6 +406,9 @@ export default function UsPanel({ photos = [], notes = [], showToast }) {
           </div>
         </div>
       </div>
+
+      {/* Güvenlik */}
+      <SecurityPanel showToast={showToast} />
 
       {isGameOpen && (
         <MemoryGame

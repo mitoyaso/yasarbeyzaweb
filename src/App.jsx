@@ -10,6 +10,7 @@ import Toast from './components/Toast';
 import SupabaseInfoModal from './components/SupabaseInfoModal';
 import InstallPrompt from './components/InstallPrompt';
 import UsPanel from './components/us/UsPanel';
+import MfaChallenge from './components/MfaChallenge';
 import { STORAGE_KEYS, SENDERS } from './lib/constants';
 import { getPhotos, getNotes, isSupabaseConfigured } from './lib/supabase';
 import {
@@ -18,6 +19,7 @@ import {
   signOutUser,
   displayNameFromSession,
 } from './lib/auth';
+import { isMfaChallengeRequired } from './lib/mfa';
 import { Camera, MessageSquareHeart, Heart, AlertTriangle, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -26,6 +28,9 @@ export default function App() {
 
   // Oturumun tarayıcıdan geri yüklenmesi tamamlandı mı?
   const [isAuthReady, setIsAuthReady] = useState(!isSupabaseConfigured);
+
+  // İki adımlı doğrulama (2FA) gerekiyor mu? (hesabında 2FA açıksa true)
+  const [mfaRequired, setMfaRequired] = useState(false);
 
   // Aktif Gönderen (Yaşar veya Beyza)
   const [activeSender, setActiveSender] = useState(() => {
@@ -60,16 +65,28 @@ export default function App() {
 
     let isCancelled = false;
 
-    getCurrentSession().then((restored) => {
-      if (!isCancelled) {
-        setSession(restored);
+    getCurrentSession().then(async (restored) => {
+      if (isCancelled) return;
+
+      setSession(restored);
+
+      if (restored) {
         const name = displayNameFromSession(restored);
         if (name) {
           setActiveSender(name);
           localStorage.setItem(STORAGE_KEYS.ACTIVE_SENDER, name);
         }
-        setIsAuthReady(true);
+
+        // Hesabında 2FA açıksa oturum henüz tam doğrulanmamıştır (aal1).
+        try {
+          const needsChallenge = await isMfaChallengeRequired();
+          if (!isCancelled) setMfaRequired(needsChallenge);
+        } catch (err) {
+          console.warn('2FA durumu kontrol edilemedi:', err);
+        }
       }
+
+      if (!isCancelled) setIsAuthReady(true);
     });
 
     const unsubscribe = subscribeToAuthChanges((nextSession) => {
@@ -83,7 +100,7 @@ export default function App() {
   }, []);
 
   // Giriş Başarılı Olduğunda
-  const handleLoginSuccess = (newSession) => {
+  const handleLoginSuccess = async (newSession) => {
     setSession(newSession ?? null);
 
     const name = displayNameFromSession(newSession);
@@ -92,7 +109,31 @@ export default function App() {
       localStorage.setItem(STORAGE_KEYS.ACTIVE_SENDER, name);
     }
 
+    // Hesabında 2FA açıksa ikinci adım (kod) istenir.
+    try {
+      const needsChallenge = await isMfaChallengeRequired();
+      if (needsChallenge) {
+        setMfaRequired(true);
+        showToast('Son adım: doğrulama kodunu gir 🛡️', 'info');
+        return;
+      }
+    } catch (err) {
+      console.warn('2FA durumu kontrol edilemedi:', err);
+    }
+
     showToast('Hoş geldin aşkım! Seni çok seviyorum 💖', 'success');
+  };
+
+  // İki adımlı doğrulama tamamlandığında
+  const handleMfaVerified = () => {
+    setMfaRequired(false);
+    showToast('Doğrulama başarılı, hoş geldin! 💖', 'success');
+  };
+
+  // İki adımlı doğrulamadan vazgeçilirse
+  const handleMfaCancelled = () => {
+    setMfaRequired(false);
+    setSession(null);
   };
 
   // Çıkış Yap
@@ -202,6 +243,16 @@ export default function App() {
       <div className="relative min-h-screen">
         <FloatingHearts />
         <LoginModal onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
+
+  // Hesabında iki adımlı doğrulama açıksa kodu iste
+  if (mfaRequired) {
+    return (
+      <div className="relative min-h-screen">
+        <FloatingHearts />
+        <MfaChallenge onVerified={handleMfaVerified} onCancel={handleMfaCancelled} />
       </div>
     );
   }

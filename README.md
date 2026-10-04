@@ -47,6 +47,21 @@ Sevgililer (Yaşar & Beyza) için özel olarak tasarlanmış; modern, romantik, 
    - Arka planda süzülen tatlı kalpler ve ışıltılar.
    - Soft pembe, sıcak krem ve gül kurusu pastel renk paleti.
 
+9. **Telefona Kurulabilir Uygulama (PWA)**:
+   - Ana ekrana ikon eklenir, tam ekran açılır, uygulama gibi çalışır.
+   - Çevrimdışıyken uygulama kabuğu önbellekten açılır (veriler asla önbelleğe alınmaz).
+   - Fotoğraflar yüklenmeden önce tarayıcıda sıkıştırılır (1920 px / %85) ve her fotoğraf için
+     480 px'lik küçük bir önizleme üretilir — galeri hızlı açılır, depolama kotası korunur.
+     iPhone'un HEIC dosyaları da bu adımda JPEG'e çevrilir.
+
+10. **Bizim Köşemiz** (üçüncü sekme):
+    - **İstatistikler**: anı / not / yorum / kalp sayıları, birlikte geçen süre, en uzun seri.
+    - **11 başarım**: kilitli olanlar ilerleme çubuğuyla gösterilir.
+    - **Anı Eşleştirme Oyunu**: kendi fotoğraflarınızla hafıza oyunu.
+    - **Bizim Filmimiz**: müzik eşliğinde tam ekran slayt gösterisi (kendi şarkınızı seçebilirsiniz).
+    - **Yedekleme**: tüm veri + tüm fotoğraf dosyaları tek ZIP arşivinde (veya yalnızca JSON).
+    - **Güvenlik**: iki adımlı doğrulama (2FA) kurulumu.
+
 ---
 
 ## 🛠️ Teknoloji Yığını
@@ -153,9 +168,56 @@ git push -u origin main
 | Katman | Durum |
 | --- | --- |
 | Şifre saklama | Kodda/repoda/`.env` içinde şifre **yok**; doğrulama Supabase Auth'ta |
+| Yetki kontrolü | Yalnızca iki izinli e-posta (`is_allowed_user()`); dışarıdan açılan hesap hiçbir şeye erişemez |
 | Tablo erişimi | Yalnızca `authenticated`; `anon` için okuma/yazma/silme kapalı |
 | Fotoğraflar | Private bucket + süreli imzalı adresler |
-| Yeni kayıt | Panelden kapatılması önerilir |
+| İki adımlı doğrulama | Uygulama içinden açılabilir; veritabanı seviyesinde zorunlu kılmak için [`optional_aal2_enforcement.sql`](./supabase/migrations/optional_aal2_enforcement.sql) |
+| Yeni kayıt | Panelden kapatılması önerilir (politikalar zaten korur) |
+| Yedek | Uygulama içinden ZIP/JSON olarak indirilebilir |
+
+### İki adımlı doğrulamayı (2FA) açmak
+
+1. Supabase Panel → **Authentication → Multi-Factor Auth** → **TOTP** seçeneğini etkinleştir.
+2. Sitede **Bizim Köşemiz → Güvenlik → "İki adımlı doğrulamayı aç"** yolunu izle.
+3. Telefonuna Google Authenticator / Authy gibi bir uygulama kur, kare kodu tara.
+4. Uygulamanın verdiği 6 haneli kodu gir — bundan sonra her girişte kod istenir.
+
+> **İsteğe bağlı ileri düzey:** 2FA'yı veritabanı seviyesinde zorunlu kılmak için
+> (şifresi çalınan biri API'yi doğrudan çağırsa bile veriyi okuyamaz) yukarıdaki bağlantıdaki
+> betiği, **2FA'yı açıp kodla giriş yapabildiğini doğruladıktan sonra** çalıştır.
+> Betik, bir aksilik hâlinde kullanıcıyı kilitlemeyecek şekilde tasarlanmıştır;
+> geri almak için [`20261005_auth_only_rls.sql`](./supabase/migrations/20261005_auth_only_rls.sql) tekrar çalıştırılır.
+
+---
+
+## 🧪 Testler ve Bakım
+
+```bash
+# Mantık testleri (başarım/seri hesabı ve ZIP yedeği) — bağımlılık gerektirmez
+npm test
+
+# Kod kalitesi
+npm run lint
+```
+
+- **Duraklama koruması:** Ücretsiz Supabase projeleri 7 gün hareketsizlikte duraklatılır.
+  Depodaki [`.github/workflows/supabase-keep-alive.yml`](./.github/workflows/supabase-keep-alive.yml)
+  görevi her gün otomatik olarak veritabanına dokunur ve projeyi uyanık tutar.
+  (GitHub, 60 gün hiç commit yapılmayan depoların zamanlanmış görevlerini duraklatabilir;
+  böyle bir durumda Actions sekmesinden tek tıkla yeniden etkinleştirilir.)
+- **Hata kalkanı:** Beklenmeyen bir hata olduğunda uygulama bembeyaz ekrana düşmez,
+  anlaşılır bir mesaj ve kurtarma butonları gösterir.
+
+---
+
+## 🗺️ Yol Haritası (planlanan)
+
+- Çöp kutusu: silinen anıları 30 gün içinde geri getirme
+- Canlı akış: yeni anı/not/yorum sayfa yenilemeden düşsün + bildirim
+- Anı haritası: fotoğraflara konum ekleyip haritada görme
+- Birbirini tanıma quizi
+- Kod bölme: ilk yükleme paketini küçültme
+
 
 ---
 
