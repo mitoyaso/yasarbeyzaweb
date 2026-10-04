@@ -8,7 +8,7 @@
 //  hem de tazelik açısından yanlış olur.)
 // ==============================================================================
 
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = `sev-shell-${VERSION}`;
 const ASSET_CACHE = `sev-asset-${VERSION}`;
 const FONT_CACHE = `sev-font-${VERSION}`;

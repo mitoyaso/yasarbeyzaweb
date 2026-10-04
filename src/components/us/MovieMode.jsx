@@ -170,7 +170,10 @@ export default function MovieMode({ photos, onClose }) {
         />
 
         {/* Üst Bar — sol üstte çıkış, sağ üstte müzik/tam ekran */}
-        <div className="absolute top-0 left-0 right-0 z-20 px-3 sm:px-4 py-3 safe-area-pt bg-gradient-to-b from-black/85 via-black/45 to-transparent flex items-center justify-between gap-2">
+        <div
+          className="absolute top-0 left-0 right-0 z-30 px-3 sm:px-4 pb-3 bg-gradient-to-b from-black/85 via-black/45 to-transparent flex items-center justify-between gap-2"
+          style={{ paddingTop: 'max(0.9rem, env(safe-area-inset-top, 0px))' }}
+        >
           <button
             type="button"
             onClick={onClose}
@@ -250,7 +253,10 @@ export default function MovieMode({ photos, onClose }) {
         )}
 
         {/* Alt Bilgi ve Kontroller */}
-        <div className="absolute bottom-0 left-0 right-0 p-4 pt-10 bg-gradient-to-t from-black/80 to-transparent">
+        <div
+          className="absolute bottom-0 left-0 right-0 px-4 pt-10 bg-gradient-to-t from-black/80 to-transparent"
+          style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
+        >
           <div className="max-w-2xl mx-auto text-center mb-3">
             {current.caption && (
               <p className="text-white text-sm sm:text-base font-medium leading-relaxed mb-1">
@@ -308,6 +314,17 @@ export default function MovieMode({ photos, onClose }) {
               <ChevronRight className="w-5 h-5" />
             </button>
           </div>
+
+          {/* Çıkış — alt bölgede: üstteki çentik/durum çubuğu ne yaparsa yapsın
+              burada her cihazda görünür ve kolay dokunulur */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-4 mx-auto flex items-center justify-center gap-2 w-full max-w-[16rem] py-3 rounded-2xl bg-white/20 border border-white/35 text-white font-bold text-sm backdrop-blur-sm hover:bg-white/30 active:scale-95 transition cursor-pointer"
+          >
+            <X className="w-4 h-4" />
+            <span>Slayttan çık</span>
+          </button>
 
           <p className="text-center text-white/40 text-[10px] mt-3">
             {index + 1} / {slides.length}

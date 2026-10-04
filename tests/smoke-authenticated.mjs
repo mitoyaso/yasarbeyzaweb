@@ -143,6 +143,22 @@ kontrol(
 );
 await bekle(400);
 
+// Telefonda üst bölge çentik/durum çubuğu altında kalabildiği için
+// altta da mutlaka bir çıkış yolu bulunmalı (kullanıcı geri bildirimi).
+tikla(document, 'Bizim Filmimiz');
+await bekle(700);
+const altCikis = [...document.querySelectorAll('button')].find(
+  (buton) => (buton.textContent || '').trim() === 'Slayttan çık'
+);
+kontrol('Altta "Slayttan çık" düğmesi var (telefon güvencesi)', Boolean(altCikis));
+altCikis?.click();
+await bekle(500);
+kontrol(
+  'Alttaki çıkış düğmesi çalışıyor',
+  document.querySelector('[role="dialog"][aria-label="Bizim Filmimiz"]') === null
+);
+await bekle(400);
+
 console.log('\n6) ÇÖP KUTUSU PANELİ');
 tikla(document, 'Çöp Kutusu');
 await bekle(400);
