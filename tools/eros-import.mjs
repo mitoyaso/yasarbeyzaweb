@@ -28,6 +28,28 @@ const VERI_KLASORU = path.resolve('eros-data');
 const ZAMAN_KALIBI =
   /^\[?(\d{1,2})[./](\d{1,2})[./](\d{2,4}),?\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*([AaPp][Mm])?\]?\s*(?:[-–]\s*)?/;
 
+// WhatsApp dökümlerinde satır başında görünmez işaretler olabiliyor (U+200E gibi).
+// Temizlenmezse satır yeni mesaj sanılmaz ve ÖNCEKİ mesaja yapışır.
+const GORUNMEZ_BAS = /^[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]+/;
+const GORUNMEZ_HER_YER = /[\u200e\u200f\u202a-\u202e\u2066-\u2069\ufeff]/g;
+
+// "görüntü dahil edilmedi", "çıkartma dahil edilmedi" gibi medya yer tutucuları.
+// Bunlar mesajın İÇİNDEN çıkarılır; geriye bir şey kalmazsa mesaj sayılmaz.
+const MEDYA_YER_TUTUCU =
+  /(?:görüntü|video|ses|belge|çıkartma|sticker|medya|fotoğraf|image|audio|document)\s+dahil edilmedi\.?/gi;
+
+function satirBasiniTemizle(satir) {
+  return satir.replace(GORUNMEZ_BAS, '');
+}
+
+function mesajMetniniTemizle(metin) {
+  return metin
+    .replace(MEDYA_YER_TUTUCU, ' ')
+    .replace(GORUNMEZ_HER_YER, '')
+    .replace(/[ \t]+/g, ' ')
+    .trim();
+}
+
 // "Gönderen: mesaj" — gönderen adı 60 karakteri ve ':' içermez
 const GONDEREN_KALIBI = /^([^:]{1,60}?):\s?([\s\S]*)$/;
 
@@ -126,7 +148,8 @@ export function dokumuAyristir(metin) {
     ).padStart(2, '0')}`;
   };
 
-  for (const satir of satirlar) {
+  for (const hamSatir of satirlar) {
+    const satir = satirBasiniTemizle(hamSatir);
     const zaman = satir.match(ZAMAN_KALIBI);
 
     if (zaman) {
@@ -160,7 +183,7 @@ export function dokumuAyristir(metin) {
         tarih: tarihCoz(zaman[1], zaman[2], zaman[3]),
         saat,
         dakika: Number(zaman[5]),
-        gonderen: gonderen[1].trim(),
+        gonderen: gonderen[1].trim().replace(GORUNMEZ_HER_YER, ''),
         metin: gonderen[2],
       };
       continue;
@@ -174,7 +197,9 @@ export function dokumuAyristir(metin) {
 
   if (aktif) mesajlar.push(aktif);
 
-  return mesajlar.filter((m) => m.tarih && m.metin.trim());
+  return mesajlar
+    .map((mesaj) => ({ ...mesaj, metin: mesajMetniniTemizle(mesaj.metin) }))
+    .filter((mesaj) => mesaj.tarih && mesaj.metin.length > 0);
 }
 
 // ------------------------------------------------------------------------------
@@ -353,16 +378,21 @@ function test() {
 çok satırlı
 devam eden mesaj
 03.10.2026 21:20 - Mesajlar ve aramalar uçtan uca şifrelidir.
-10/4/26, 9:30 PM - Beyza: Iyi geceler`;
+10/4/26, 9:30 PM - Beyza: Iyi geceler
+\u200e[03.10.2026, 21:25:00] Beyza: Görünmez işaretli satır
+[03.10.2026, 21:26:00] Yaşar: ‎görüntü dahil edilmedi
+[03.10.2026, 21:27:00] Yaşar: ‎çıkartma dahil edilmedi`;
 
   const mesajlar = dokumuAyristir(ornek);
   const kontroller = [
-    ['sistem mesajı ayıklandı', mesajlar.length === 4],
+    ['sistem mesajı ayıklandı', mesajlar.length === 5],
     ['çok satırlı mesaj birleşti', mesajlar[2]?.metin.includes('devam eden')],
     ['gönderen doğru', mesajlar[1]?.gonderen === 'Beyza'],
     ['emoji korundu', mesajlar[1]?.metin.includes('💖')],
     ['tarih çözüldü', mesajlar[0]?.tarih === '2026-10-03'],
     ['12 saat formatı (PM) çözüldü', mesajlar[3]?.saat === 21],
+    ['görünmez işaretli satır AYRI mesaj sayıldı', mesajlar[4]?.metin.includes('Görünmez işaretli satır')],
+    ['sadece medya olan mesajlar atlandı', !mesajlar.some((m) => m.metin.includes('dahil edilmedi'))],
   ];
 
   let hata = 0;
