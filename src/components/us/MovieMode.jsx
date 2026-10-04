@@ -70,26 +70,9 @@ export default function MovieMode({ photos, onClose }) {
     return () => window.removeEventListener('keydown', handleKey);
   }, [goNext, goPrev]);
 
-  // Tam ekran denemesi (tarayıcı engellerse sessizce yok sayılır)
-  useEffect(() => {
-    let entered = false;
-    (async () => {
-      try {
-        if (!document.fullscreenElement) {
-          await document.documentElement.requestFullscreen();
-          entered = true;
-        }
-      } catch {
-        /* kullanıcı izni gerekebilir, sorun değil */
-      }
-    })();
-
-    return () => {
-      if (entered && document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
-    };
-  }, []);
+  // NOT: Otomatik tam ekran İSTEĞİ kaldırıldı. Telefonda bu istek slaytın
+  // beklenmedik bir görünüme girmesine ve kontrol düğmelerinin bulunamamasına
+  // yol açıyordu. Masaüstünde sağ üstteki tam ekran düğmesiyle açılabilir.
 
   // Kapanırken müziği durdur ve geçici adresi serbest bırak
   useEffect(
@@ -178,7 +161,7 @@ export default function MovieMode({ photos, onClose }) {
             type="button"
             onClick={onClose}
             aria-label="Slayttan çık"
-            className="shrink-0 flex items-center gap-1.5 pl-2.5 pr-3.5 py-2 rounded-full bg-white/20 text-white text-sm font-bold border border-white/30 backdrop-blur-sm hover:bg-white/35 active:scale-95 transition cursor-pointer"
+            className="shrink-0 flex items-center gap-1.5 pl-3 pr-4 py-2.5 rounded-full bg-white text-rose-700 text-sm font-extrabold shadow-lg shadow-black/50 active:scale-95 transition cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             <span>Geri</span>
@@ -236,7 +219,7 @@ export default function MovieMode({ photos, onClose }) {
               onClick={goPrev}
               aria-label="Önceki anı"
               title="Önceki"
-              className="absolute left-2 sm:left-5 top-1/2 -translate-y-1/2 z-10 p-3 sm:p-4 rounded-full bg-black/45 text-white border border-white/25 backdrop-blur-sm hover:bg-black/70 active:scale-95 transition cursor-pointer"
+              className="absolute left-2 sm:left-5 top-1/2 -translate-y-1/2 z-10 p-3 sm:p-4 rounded-full bg-black/70 text-white border border-white/40 shadow-lg shadow-black/50 backdrop-blur-sm hover:bg-black/85 active:scale-95 transition cursor-pointer"
             >
               <ChevronLeft className="w-7 h-7 sm:w-9 sm:h-9" />
             </button>
@@ -245,7 +228,7 @@ export default function MovieMode({ photos, onClose }) {
               onClick={goNext}
               aria-label="Sonraki anı"
               title="Sonraki"
-              className="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 z-10 p-3 sm:p-4 rounded-full bg-black/45 text-white border border-white/25 backdrop-blur-sm hover:bg-black/70 active:scale-95 transition cursor-pointer"
+              className="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 z-10 p-3 sm:p-4 rounded-full bg-black/70 text-white border border-white/40 shadow-lg shadow-black/50 backdrop-blur-sm hover:bg-black/85 active:scale-95 transition cursor-pointer"
             >
               <ChevronRight className="w-7 h-7 sm:w-9 sm:h-9" />
             </button>
@@ -254,7 +237,7 @@ export default function MovieMode({ photos, onClose }) {
 
         {/* Alt Bilgi ve Kontroller */}
         <div
-          className="absolute bottom-0 left-0 right-0 px-4 pt-10 bg-gradient-to-t from-black/80 to-transparent"
+          className="absolute bottom-0 left-0 right-0 px-4 pt-10 bg-gradient-to-t from-black/95 via-black/70 to-transparent"
           style={{ paddingBottom: 'max(1rem, env(safe-area-inset-bottom, 0px))' }}
         >
           <div className="max-w-2xl mx-auto text-center mb-3">
@@ -320,7 +303,7 @@ export default function MovieMode({ photos, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="mt-4 mx-auto flex items-center justify-center gap-2 w-full max-w-[16rem] py-3 rounded-2xl bg-white/20 border border-white/35 text-white font-bold text-sm backdrop-blur-sm hover:bg-white/30 active:scale-95 transition cursor-pointer"
+            className="mt-4 mx-auto flex items-center justify-center gap-2 w-full max-w-[18rem] py-3.5 rounded-2xl bg-white text-rose-700 font-extrabold text-base shadow-xl shadow-black/60 active:scale-95 transition cursor-pointer"
           >
             <X className="w-4 h-4" />
             <span>Slayttan çık</span>
