@@ -20,6 +20,7 @@ import {
   displayNameFromSession,
 } from './lib/auth';
 import { isMfaChallengeRequired } from './lib/mfa';
+import { subscribeToLiveChanges } from './lib/realtime';
 import { Camera, MessageSquareHeart, Heart, AlertTriangle, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -223,6 +224,45 @@ export default function App() {
       isCancelled = true;
     };
   }, [isAuthenticated]);
+
+  // ---------------------------------------------------------------------------
+  // CANLI AKIŞ (Realtime): partnerin eklediği yeni anı/not anında düşsün
+  // (Veritabanında Realtime yayını açık değilse sessizce bekler, hata vermez.)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured) return undefined;
+
+    const benimAdim = displayNameFromSession(session);
+
+    const unsubscribe = subscribeToLiveChanges({
+      onDegisim: async ({ tablo, yeni }) => {
+        try {
+          if (tablo === 'photos') {
+            const data = await getPhotos();
+            setPhotos(data);
+
+            const ekleyen = yeni?.uploaded_by;
+            if (ekleyen && benimAdim && ekleyen !== benimAdim) {
+              showToast(`${ekleyen} yeni bir anı ekledi 💖`, 'info');
+            }
+          } else if (tablo === 'notes') {
+            const data = await getNotes();
+            setNotes(data);
+
+            const yazan = yeni?.sender;
+            if (yazan && benimAdim && yazan !== benimAdim) {
+              showToast(`${yazan} yeni bir aşk notu bıraktı 💌`, 'info');
+            }
+          }
+        } catch (err) {
+          console.warn('Canlı akış güncellemesi başarısız:', err);
+        }
+      },
+    });
+
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, session]);
 
   // Oturum henüz geri yüklenmediyse kısa bir bekleme ekranı göster
   if (!isAuthReady) {
