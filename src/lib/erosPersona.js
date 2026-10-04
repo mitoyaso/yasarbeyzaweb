@@ -75,7 +75,12 @@ export function erosSistemPromptu({
   }
 
   if (uygulamaVerisi && uygulamaVerisi.trim()) {
-    bolumler.push(`UYGULAMADAKİ SON PAYLAŞIMLARI\n${uygulamaVerisi.trim()}`);
+    bolumler.push(
+      `UYGULAMADAKİ SON PAYLAŞIMLARI\n${uygulamaVerisi.trim()}\n\n` +
+        'ÖNEMLİ: Buradaki tarihler kaydın uygulamaya eklendiği tarihtir — anının ' +
+        'gerçekleştiği tarih farklı olabilir. "Dün olmuş" gibi bir çıkarım YAPMA; ' +
+        'anının ne zaman yaşandığını bilmiyorsan sor.'
+    );
   }
 
   return bolumler.join('\n\n---\n\n');
@@ -90,19 +95,19 @@ export function uygulamaVerisiOzetle({ photos = [], notes = [], adet = 12 } = {}
 
   const sonAnilar = photos.slice(0, adet);
   if (sonAnilar.length > 0) {
-    satirlar.push('Son anılar:');
+    satirlar.push('Son anılar (baştaki tarih: kaydın uygulamaya EKLENDİĞİ tarih):');
     for (const foto of sonAnilar) {
       const tarih = (foto.created_at || '').slice(0, 10);
       const kim = foto.uploaded_by ? `${foto.uploaded_by}` : 'bilinmiyor';
       const not = foto.caption ? ` — "${foto.caption}"` : '';
       const yer = foto.location_name ? ` (${foto.location_name})` : '';
-      satirlar.push(`- ${tarih} · ${kim}${yer}${not}`);
+      satirlar.push(`- ${tarih} (yüklenme) · ${kim}${yer}${not}`);
     }
   }
 
   const sonNotlar = notes.slice(0, adet);
   if (sonNotlar.length > 0) {
-    satirlar.push('Son aşk notları:');
+    satirlar.push('Son aşk notları (baştaki tarih: notun yazıldığı tarih):');
     for (const not of sonNotlar) {
       const tarih = (not.created_at || '').slice(0, 10);
       const metin = String(not.content || '').replace(/\s+/g, ' ').slice(0, 160);

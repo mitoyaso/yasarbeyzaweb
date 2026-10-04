@@ -337,6 +337,12 @@ const ozet = uygulamaVerisiOzetle({
 kontrol('Anı özeti tarih içeriyor', ozet.includes('2026-10-01'), true);
 kontrol('Anı özeti konum içeriyor', ozet.includes('Antalya'), true);
 kontrol('Not özeti göndereni içeriyor', ozet.includes('Yaşar'), true);
+kontrol('Tarih "yüklenme" olarak etiketlendi', ozet.includes('(yüklenme)'), true);
+kontrol(
+  'Yüklenme tarihi uyarısı promptta var',
+  sistem.includes('uygulamaya eklendiği tarihtir'),
+  true
+);
 
 kontrol('SSE: metin parçası çözüldü',
   sseSatiriniCoz('data: {"choices":[{"delta":{"content":"Merhaba"}}]}').metin, 'Merhaba');
