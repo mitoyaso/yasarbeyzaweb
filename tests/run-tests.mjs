@@ -11,6 +11,7 @@
 import { longestDailyStreak, computeStats, computeAchievements } from '../src/lib/achievements.js';
 import { createZip, textToBytes, crc32 } from '../src/lib/zip.js';
 import { thumbPathFor, THUMB_PREFIX } from '../src/lib/image.js';
+import { notificationPermission, notificationsSupported, isPageHidden } from '../src/lib/notifications.js';
 
 let toplamTest = 0;
 let basarisiz = 0;
@@ -101,6 +102,15 @@ kontrol('boş metin → null', thumbPathFor(''), null);
 kontrol('null → null', thumbPathFor(null), null);
 kontrol('tanımsız → null', thumbPathFor(undefined), null);
 kontrol('önek sabiti', THUMB_PREFIX, 'thumb_');
+
+// ==============================================================================
+bolum('BİLDİRİM YARDIMCILARI (tarayıcı API\'si olmayan ortam)');
+// ==============================================================================
+// Node'da window/Notification/document yoktur; fonksiyonların çökmek yerine
+// güvenli varsayılan döndürmesi gerekir.
+kontrol('izin durumu → unsupported', notificationPermission(), 'unsupported');
+kontrol('destek durumu → false', notificationsSupported(), false);
+kontrol('sayfa gizli mi → false', isPageHidden(), false);
 
 // ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');

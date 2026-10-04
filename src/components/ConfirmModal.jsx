@@ -1,5 +1,6 @@
 import React from 'react';
 import { Trash2, X } from 'lucide-react';
+import { useModalA11y } from '../lib/useModalA11y';
 
 export default function ConfirmModal({
   isOpen,
@@ -12,11 +13,20 @@ export default function ConfirmModal({
   onCancel,
   isLoading = false,
 }) {
+  // Escape ile kapanma + odak tuzağı (kanca koşulsuz çağrılmalı)
+  const dialogRef = useModalA11y({ isOpen, onClose: onCancel });
+
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-rose-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-sm glass-panel bg-white/95 rounded-3xl p-6 shadow-2xl border border-rose-200/80 animate-in zoom-in-95 duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="w-full max-w-sm glass-panel bg-white/95 rounded-3xl p-6 shadow-2xl border border-rose-200/80 animate-in zoom-in-95 duration-200"
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="w-12 h-12 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600 shadow-inner">
             <Trash2 className="w-6 h-6" />

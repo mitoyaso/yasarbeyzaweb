@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Edit3, X, Check } from 'lucide-react';
+import { useModalA11y } from '../../lib/useModalA11y';
 
 export default function EditCaptionModal({
   isOpen,
@@ -10,6 +11,9 @@ export default function EditCaptionModal({
 }) {
   const [caption, setCaption] = useState(currentCaption || '');
 
+  // Escape ile kapanma + odak tuzağı (kanca koşulsuz çağrılmalı)
+  const dialogRef = useModalA11y({ isOpen, onClose: onCancel });
+
   if (!isOpen) return null;
 
   const handleSubmit = (e) => {
@@ -19,7 +23,13 @@ export default function EditCaptionModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-rose-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md glass-panel bg-white/95 rounded-3xl p-6 shadow-2xl border border-rose-200 animate-in zoom-in-95 duration-200">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Anı Notunu Düzenle"
+        className="w-full max-w-md glass-panel bg-white/95 rounded-3xl p-6 shadow-2xl border border-rose-200 animate-in zoom-in-95 duration-200"
+      >
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <div className="w-10 h-10 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center">

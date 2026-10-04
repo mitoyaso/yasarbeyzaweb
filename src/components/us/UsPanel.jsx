@@ -5,6 +5,7 @@ import { exportDataOnly, exportFullBackup } from '../../lib/backup';
 import MemoryGame from './MemoryGame';
 import MovieMode from './MovieMode';
 import SecurityPanel from './SecurityPanel';
+import NotificationSettings from './NotificationSettings';
 import {
   Camera,
   MessageSquareHeart,
@@ -470,6 +471,9 @@ export default function UsPanel({ photos = [], notes = [], showToast }) {
 
       {/* Güvenlik */}
       <SecurityPanel showToast={showToast} />
+
+      {/* Bildirimler */}
+      <NotificationSettings showToast={showToast} />
 
       {isGameOpen && (
         <MemoryGame

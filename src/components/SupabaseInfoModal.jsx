@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { Database, X, Check, Copy, ExternalLink } from 'lucide-react';
 import { isSupabaseConfigured } from '../lib/supabase';
+import { useModalA11y } from '../lib/useModalA11y';
 
 export default function SupabaseInfoModal({ isOpen, onClose }) {
   const [copied, setCopied] = useState(false);
+
+  // Escape ile kapanma + odak tuzağı (kanca koşulsuz çağrılmalı)
+  const dialogRef = useModalA11y({ isOpen, onClose });
 
   if (!isOpen) return null;
 
@@ -18,7 +22,13 @@ export default function SupabaseInfoModal({ isOpen, onClose }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-rose-950/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-lg glass-panel bg-white/95 rounded-3xl p-6 sm:p-7 shadow-2xl border border-rose-200 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Supabase Bilgilendirme"
+        className="w-full max-w-lg glass-panel bg-white/95 rounded-3xl p-6 sm:p-7 shadow-2xl border border-rose-200 animate-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
+      >
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2.5">
             <div className="w-10 h-10 rounded-2xl bg-rose-100 flex items-center justify-center text-rose-600">

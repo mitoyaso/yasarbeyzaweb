@@ -21,6 +21,7 @@ import {
 } from './lib/auth';
 import { isMfaChallengeRequired } from './lib/mfa';
 import { subscribeToLiveChanges } from './lib/realtime';
+import { showLocalNotification, isPageHidden } from './lib/notifications';
 import { Camera, MessageSquareHeart, Heart, AlertTriangle, Sparkles } from 'lucide-react';
 
 export default function App() {
@@ -243,7 +244,18 @@ export default function App() {
 
             const ekleyen = yeni?.uploaded_by;
             if (ekleyen && benimAdim && ekleyen !== benimAdim) {
-              showToast(`${ekleyen} yeni bir anı ekledi 💖`, 'info');
+              const mesaj = `${ekleyen} yeni bir anı ekledi 💖`;
+              showToast(mesaj, 'info');
+
+              // Sekme arka plandaysa sistem bildirimi de göster
+              if (isPageHidden()) {
+                const sonFoto = data.find((item) => item.id === yeni?.id) ?? data[0];
+                showLocalNotification({
+                  title: 'Aşk Günlüğü 💖',
+                  body: mesaj,
+                  icon: sonFoto?.thumb_url || '/icon-192.png',
+                });
+              }
             }
           } else if (tablo === 'notes') {
             const data = await getNotes();
@@ -251,7 +263,16 @@ export default function App() {
 
             const yazan = yeni?.sender;
             if (yazan && benimAdim && yazan !== benimAdim) {
-              showToast(`${yazan} yeni bir aşk notu bıraktı 💌`, 'info');
+              const mesaj = `${yazan} yeni bir aşk notu bıraktı 💌`;
+              showToast(mesaj, 'info');
+
+              if (isPageHidden()) {
+                showLocalNotification({
+                  title: 'Aşk Günlüğü 💖',
+                  body: mesaj,
+                  icon: '/icon-192.png',
+                });
+              }
             }
           }
         } catch (err) {

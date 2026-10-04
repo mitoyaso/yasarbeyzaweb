@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { triggerHeartConfetti } from '../../lib/utils';
+import { useModalA11y } from '../../lib/useModalA11y';
 import { X, RefreshCw, Trophy, Timer, MousePointerClick, Heart } from 'lucide-react';
 
 const PHOTO_LIMIT = 6;
@@ -26,6 +27,9 @@ export default function MemoryGame({ photos, onClose, showToast }) {
   const [seconds, setSeconds] = useState(0);
 
   const timeouts = useRef([]);
+
+  // Escape ile kapanma + odak tuzağı
+  const dialogRef = useModalA11y({ onClose });
 
   const usablePhotos = useMemo(
     () => (photos || []).filter((photo) => photo?.thumb_url || photo?.url),
@@ -109,7 +113,13 @@ export default function MemoryGame({ photos, onClose, showToast }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-rose-950/60 backdrop-blur-sm flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-      <div className="w-full max-w-2xl glass-panel bg-white/95 rounded-3xl shadow-2xl border border-rose-200 my-auto">
+      <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Anı Eşleştirme Oyunu"
+        className="w-full max-w-2xl glass-panel bg-white/95 rounded-3xl shadow-2xl border border-rose-200 my-auto"
+      >
         {/* Başlık */}
         <div className="flex items-center justify-between p-4 sm:p-5 border-b border-rose-100">
           <div>
