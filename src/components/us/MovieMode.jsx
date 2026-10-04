@@ -11,6 +11,7 @@ import {
   Music2,
   Maximize,
   Heart,
+  ArrowLeft,
 } from 'lucide-react';
 
 const SLIDE_MS = 6000;
@@ -136,7 +137,7 @@ export default function MovieMode({ photos, onClose }) {
 
   if (slides.length === 0) {
     return (
-      <div className="fixed inset-0 z-50 bg-rose-950/95 flex items-center justify-center p-6">
+      <div className="fixed inset-0 z-[70] bg-rose-950/95 flex items-center justify-center p-6 safe-area-pt">
         <div className="text-center">
           <p className="text-white font-medium mb-4">Gösterilecek fotoğraf yok. 📸</p>
           <button
@@ -157,7 +158,7 @@ export default function MovieMode({ photos, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label="Bizim Filmimiz"
-      className="fixed inset-0 z-50 bg-black flex flex-col"
+      className="fixed inset-0 z-[70] bg-black flex flex-col"
     >
       {/* Görsel Alanı */}
       <div className="relative flex-1 overflow-hidden">
@@ -168,14 +169,24 @@ export default function MovieMode({ photos, onClose }) {
           className="w-full h-full object-contain animate-kenburns"
         />
 
-        {/* Üst Bar */}
-        <div className="absolute top-0 left-0 right-0 p-4 bg-gradient-to-b from-black/70 to-transparent flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-white/90">
-            <Heart className="w-4 h-4 fill-rose-400 text-rose-400" />
-            <span className="font-script text-xl sm:text-2xl">Bizim Filmimiz</span>
+        {/* Üst Bar — sol üstte çıkış, sağ üstte müzik/tam ekran */}
+        <div className="absolute top-0 left-0 right-0 z-20 px-3 sm:px-4 py-3 safe-area-pt bg-gradient-to-b from-black/85 via-black/45 to-transparent flex items-center justify-between gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Slayttan çık"
+            className="shrink-0 flex items-center gap-1.5 pl-2.5 pr-3.5 py-2 rounded-full bg-white/20 text-white text-sm font-bold border border-white/30 backdrop-blur-sm hover:bg-white/35 active:scale-95 transition cursor-pointer"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Geri</span>
+          </button>
+
+          <div className="flex items-center gap-1.5 text-white/90 min-w-0 justify-center">
+            <Heart className="hidden sm:block w-4 h-4 fill-rose-400 text-rose-400 shrink-0" />
+            <span className="font-script text-base sm:text-2xl truncate">Bizim Filmimiz</span>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 shrink-0">
             <input
               ref={musicInputRef}
               type="file"
@@ -187,7 +198,7 @@ export default function MovieMode({ photos, onClose }) {
               type="button"
               onClick={toggleMusic}
               title={musicName ? `Müzik: ${musicName}` : 'Müzik seç'}
-              className={`p-2 rounded-full transition cursor-pointer ${
+              className={`p-2.5 rounded-full transition cursor-pointer ${
                 musicName
                   ? 'bg-rose-500/90 text-white'
                   : 'bg-white/15 text-white/80 hover:bg-white/25'
@@ -199,7 +210,7 @@ export default function MovieMode({ photos, onClose }) {
               type="button"
               onClick={() => document.documentElement.requestFullscreen?.().catch(() => {})}
               title="Tam ekran"
-              className="p-2 rounded-full bg-white/15 text-white/80 hover:bg-white/25 transition cursor-pointer"
+              className="hidden sm:block p-2.5 rounded-full bg-white/15 text-white/80 hover:bg-white/25 transition cursor-pointer"
             >
               <Maximize className="w-4 h-4" />
             </button>
@@ -207,12 +218,36 @@ export default function MovieMode({ photos, onClose }) {
               type="button"
               onClick={onClose}
               aria-label="Kapat"
-              className="p-2 rounded-full bg-white/15 text-white/80 hover:bg-white/25 transition cursor-pointer"
+              className="p-2.5 rounded-full bg-white/15 text-white/80 hover:bg-white/25 transition cursor-pointer"
             >
               <X className="w-4 h-4" />
             </button>
           </div>
         </div>
+
+        {/* Yan gezinme okları — slaytta rahatça ileri/geri gitmek için */}
+        {slides.length > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={goPrev}
+              aria-label="Önceki anı"
+              title="Önceki"
+              className="absolute left-2 sm:left-5 top-1/2 -translate-y-1/2 z-10 p-3 sm:p-4 rounded-full bg-black/45 text-white border border-white/25 backdrop-blur-sm hover:bg-black/70 active:scale-95 transition cursor-pointer"
+            >
+              <ChevronLeft className="w-7 h-7 sm:w-9 sm:h-9" />
+            </button>
+            <button
+              type="button"
+              onClick={goNext}
+              aria-label="Sonraki anı"
+              title="Sonraki"
+              className="absolute right-2 sm:right-5 top-1/2 -translate-y-1/2 z-10 p-3 sm:p-4 rounded-full bg-black/45 text-white border border-white/25 backdrop-blur-sm hover:bg-black/70 active:scale-95 transition cursor-pointer"
+            >
+              <ChevronRight className="w-7 h-7 sm:w-9 sm:h-9" />
+            </button>
+          </>
+        )}
 
         {/* Alt Bilgi ve Kontroller */}
         <div className="absolute bottom-0 left-0 right-0 p-4 pt-10 bg-gradient-to-t from-black/80 to-transparent">

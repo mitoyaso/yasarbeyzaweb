@@ -20,6 +20,7 @@ import {
   sahteOturumKur,
   sahteApiKur,
   tikla,
+  tiklaSecici,
   sahteFoto,
   sahteNot,
 } from './harness.mjs';
@@ -109,10 +110,37 @@ await bekle(400);
 
 console.log('\n5) BİZİM FİLMİMİZ (slayt)');
 tikla(document, 'Bizim Filmimiz');
-await bekle(700);
+await bekle(800);
 icerik = document.getElementById('root').innerHTML;
 kontrol('Sinema modu açıldı', icerik.includes('Bizim Filmimiz') && icerik.includes('müzik'));
-escBas();
+
+// Kullanıcı geri bildirimi: slayttan çıkmak zordu → sol üstte "Geri" olmalı
+const filmGeri = document.querySelector('button[aria-label="Slayttan çık"]');
+kontrol('Sol üstte "Geri" düğmesi var', Boolean(filmGeri),
+  filmGeri ? `"${(filmGeri.textContent || '').trim()}"` : 'YOK');
+kontrol(
+  'Yan gezinme okları var (önceki/sonraki)',
+  Boolean(
+    document.querySelector('button[aria-label="Önceki anı"]') &&
+      document.querySelector('button[aria-label="Sonraki anı"]')
+  )
+);
+
+const sayfaNo = () =>
+  (document.getElementById('root').innerHTML.match(/(\d+) \/ (\d+)/) || [])[1];
+const oncekiSayfa = sayfaNo();
+tiklaSecici(document, 'button[aria-label="Sonraki anı"]');
+await bekle(500);
+const sonrakiSayfa = sayfaNo();
+kontrol('"Sonraki" oku slaytı ilerletti', oncekiSayfa !== sonrakiSayfa,
+  `${oncekiSayfa} → ${sonrakiSayfa}`);
+
+filmGeri?.click();
+await bekle(500);
+kontrol(
+  '"Geri" düğmesi slayttan çıkardı',
+  document.querySelector('[role="dialog"][aria-label="Bizim Filmimiz"]') === null
+);
 await bekle(400);
 
 console.log('\n6) ÇÖP KUTUSU PANELİ');
