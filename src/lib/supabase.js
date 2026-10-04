@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_BUCKET_NAME, STORAGE_KEYS } from './constants';
+import { SUPABASE_BUCKET_NAME, SIGNED_URL_TTL_SECONDS, STORAGE_KEYS } from './constants';
 
 // Ortam değişkenlerinden Supabase bilgilerini al
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -108,6 +108,63 @@ function setLocalDemoData(key, data) {
 // FOTOĞRAF İŞLEMLERİ (CRUD + STORAGE)
 // ==============================================================================
 
+// ------------------------------------------------------------------------------
+// İMZALI FOTOĞRAF ADRESLERİ (PRIVATE BUCKET)
+// ------------------------------------------------------------------------------
+// Güvenlik nedeniyle 'couple-photos' bucket'ı artık herkese açık DEĞİL.
+// Bu yüzden fotoğraflar, giriş yapmış kullanıcı için üretilen geçici (imzalı)
+// adreslerle gösterilir. Veritabanındaki 'url' sütunu eski public adresi tutar
+// ve artık çalışmaz; gösterim her zaman storage_path üzerinden yapılır.
+
+function toAbsoluteStorageUrl(rawUrl) {
+  if (!rawUrl) return null;
+  // Bazı sürümler tam adres, bazıları "/object/sign/..." biçiminde göreli adres döner.
+  if (/^https?:\/\//i.test(rawUrl)) return rawUrl;
+  const base = String(supabaseUrl || '').replace(/\/$/, '');
+  return `${base}/storage/v1${rawUrl.startsWith('/') ? '' : '/'}${rawUrl}`;
+}
+
+async function withSignedPhotoUrls(photos) {
+  if (!isSupabaseConfigured || !Array.isArray(photos) || photos.length === 0) {
+    return photos;
+  }
+
+  // Demo ve yerel kayıtlarda storage_path gerçek bir dosyaya işaret etmez.
+  const targets = photos.filter(
+    (photo) => photo?.storage_path && !/^(demo|local)/i.test(photo.storage_path)
+  );
+  if (targets.length === 0) return photos;
+
+  const { data, error } = await supabase.storage
+    .from(SUPABASE_BUCKET_NAME)
+    .createSignedUrls(
+      targets.map((photo) => photo.storage_path),
+      SIGNED_URL_TTL_SECONDS
+    );
+
+  if (error || !Array.isArray(data)) {
+    console.warn(
+      'İmzalı fotoğraf adresi üretilemedi, kayıtlı adres kullanılacak:',
+      error?.message
+    );
+    return photos;
+  }
+
+  // Yanıt, gönderilen yollarla aynı sırada gelir.
+  const signedByPath = new Map();
+  targets.forEach((photo, index) => {
+    const signed = toAbsoluteStorageUrl(data[index]?.signedUrl);
+    if (signed) signedByPath.set(photo.storage_path, signed);
+  });
+
+  if (signedByPath.size === 0) return photos;
+
+  return photos.map((photo) => {
+    const signed = signedByPath.get(photo.storage_path);
+    return signed ? { ...photo, url: signed, signed_url: signed } : photo;
+  });
+}
+
 /**
  * Fotoğrafları listele (en yeniden eskiye)
  */
@@ -126,7 +183,7 @@ export async function getPhotos() {
     throw new Error('Fotoğraflar yüklenemedi: ' + error.message);
   }
 
-  return data || [];
+  return withSignedPhotoUrls(data || []);
 }
 
 /**
@@ -204,7 +261,9 @@ export async function uploadPhoto({ file, caption, uploadedBy }) {
     throw new Error('Fotoğraf veritabanına kaydedilemedi: ' + dbError.message);
   }
 
-  return photoRecord;
+  // Bucket private olduğu için eklenen fotoğrafın gösterilebilir (imzalı) adresini üret.
+  const [photoWithUrl] = await withSignedPhotoUrls([photoRecord]);
+  return photoWithUrl;
 }
 
 /**

@@ -6,38 +6,43 @@ Sevgililer (Yaşar & Beyza) için özel olarak tasarlanmış; modern, romantik, 
 
 ## 🌟 Öne Çıkan Özellikler
 
-1. **Özel ve Güvenli Giriş Ekranı**:
-   - Yalnızca Yaşar & Beyza'nın erişebileceği şifreli koruma.
-   - **Kullanıcı Adı**: `yasarbeyza`
-   - **Şifre**: `yasarbeyza29082026`
-   - Oturum durumu tarayıcı hafızasında (LocalStorage) güvenle saklanır.
+1. **Gerçek ve Güvenli Giriş Sistemi (Supabase Auth)**:
+   - Giriş, Supabase Auth üzerinden e-posta + şifre ile yapılır; şifre doğrulaması sunucu tarafında gerçekleşir.
+   - **Kodda, repoda veya `.env` dosyasında hiçbir şifre tutulmaz.**
+   - Oturum, Supabase'in güvenli oturum yönetimi ve yenileme token'ları ile sürdürülür.
+   - Giriş ekranında kişi seçilir (`👨‍🦱 Yaşar` / `👩‍🦰 Beyza`), şifre yalnızca o kişiye ait Supabase hesabıyla eşleşirse kabul edilir.
 
-2. **Aktif Gönderen Seçici (Yaşar / Beyza)**:
-   - Sayfanın üst kısmında ve mobilde tek dokunuşla gönderen profili değiştirilebilir (`👨‍🦱 Yaşar` / `👩‍🦰 Beyza`).
+2. **Veritabanı Seviyesinde Koruma (RLS)**:
+   - `notes`, `photos`, `comments`, `likes` tablolarında Row Level Security açıktır.
+   - Giriş yapmamış (anon) istemcilerin **okuma, ekleme, güncelleme ve silme yetkisi yoktur**; politikalar yalnızca `authenticated` rolüne tanımlıdır.
+   - Fotoğrafların tutulduğu `couple-photos` bucket'ı **private**'tır; görseller yalnızca giriş yapmış kullanıcı için üretilen süreli (imzalı) adreslerle gösterilir.
+
+3. **Aktif Gönderen Seçici (Yaşar / Beyza)**:
+   - Giriş yapılan hesaba göre otomatik ayarlanır; istenirse sayfanın üstünden veya mobilde alt menüden tek dokunuşla değiştirilebilir.
    - Yüklenen fotoğraflar, eklenen aşk notları ve yorumlar seçili olan gönderenin özel rozetiyle etiketlenir.
 
-3. **Fotoğraf Galerisi ve Çift Yükleme Desteği**:
+4. **Fotoğraf Galerisi ve Çift Yükleme Desteği**:
    - **Çift Yükleme**: İster "Dosya Seç" butonu ile galeriden/bilgisayardan seçin, ister "Fotoğrafı Buraya Sürükleyin" (Drag & Drop) alanına bırakın.
    - Fotoğraf yükleme anında otomatik önizleme ve anı açıklaması ekleme.
    - **Tam Yönetim Yetkisi**: Hem Yaşar hem Beyza fotoğrafları silebilir ve açıklamalarını düzenleyebilir.
-   - **Çift Silme Koruması**: Silinen fotoğraflar hem Supabase Storage (`couples-photos` bucket) depolamasından hem de veritabanından kalıcı olarak kaldırılır.
+   - **Çift Silme Koruması**: Silinen fotoğraflar hem Supabase Storage (`couple-photos` bucket) depolamasından hem de veritabanından kalıcı olarak kaldırılır.
    - **Türkçe Silme Onayı Modalı**: Kazara silinmeleri önlemek için *"Bu anıyı silmek istediğine emin misin?"* onay penceresi.
    - **Tam Ekran Görünüm (Lightbox)**: Fotoğrafları yüksek çözünürlükte büyütme ve cihaza indirme desteği.
 
-4. **Fotoğraf Yorumları**:
-   - Her fotoğrafın altında açılır-kapanır Türkçe romantik yorum alanı.
+5. **Fotoğraf Yorumları**:
+   - Her fotoğrafın altında açılır-kapanan Türkçe romantik yorum alanı.
    - Hızlı kalp ve romantik emoji reaksiyonları (`💖`, `😍`, `💍`, `🌸`, `✨` vb.).
 
-5. **Aşk Notları ve Sohbet Duvarı**:
+6. **Aşk Notları ve Sohbet Duvarı**:
    - Yaşar ve Beyza'nın birbirine günün her anında tatlı aşk notları bırakabileceği canlı duvar.
    - Türkçe tarih/saat damgaları ve kalp bırakma özelliği.
    - Hızlı aşk mesajı önerileri.
 
-6. **Romantik Aşk Sayacı ve Günün Sözü**:
+7. **Romantik Aşk Sayacı ve Günün Sözü**:
    - Birlikte geçen süreyi ve özel tarihi (`29 Ağustos 2026`) anlık gün, saat, dakika ve saniye bazında gösteren canlı sayaç.
    - Tıklandıkça değişen romantik aşk sözleri.
 
-7. **Mobil Öncelikli (Mobile-First) ve Cam Efekti (Glassmorphism)**:
+8. **Mobil Öncelikli (Mobile-First) ve Cam Efekti (Glassmorphism)**:
    - Telefonda iOS/Android yerel uygulaması hissi veren alt gezinme çubuğu (Bottom Navigation).
    - Arka planda süzülen tatlı kalpler ve ışıltılar.
    - Soft pembe, sıcak krem ve gül kurusu pastel renk paleti.
@@ -48,42 +53,64 @@ Sevgililer (Yaşar & Beyza) için özel olarak tasarlanmış; modern, romantik, 
 
 - **Çekirdek**: React 19 + Vite
 - **Stil & Tasarım**: Tailwind CSS v4 (Cam Efekti / Glassmorphism, Google Fonts: *Plus Jakarta Sans* ve *Caveat*)
-- **Veritabanı & Dosya Depolama**: Supabase JS Client (`@supabase/supabase-js`)
+- **Kimlik Doğrulama**: Supabase Auth (e-posta + şifre)
+- **Veritabanı & Dosya Depolama**: Supabase JS Client (`@supabase/supabase-js`), RLS korumalı PostgreSQL ve private Storage bucket
 - **İkon Seti**: Lucide React
 - **Efektler**: Canvas-Confetti (Kalp konfeti patlaması)
 
 ---
 
-## 🗄️ Supabase Veritabanı ve Storage Kurulumu
+## 🔐 Kurulum Adımları (Sıfırdan)
 
-1. [supabase.com](https://supabase.com) adresinde ücretsiz yeni bir proje oluşturun.
-2. Supabase kontrol panelinizde sol menüden **SQL Editor** sekmesine gidin.
+### 1. Supabase projesi ve veritabanı
+
+1. [supabase.com](https://supabase.com) adresinde yeni bir proje oluşturun.
+2. Sol menüden **SQL Editor** sekmesine gidin.
 3. Proje klasöründeki [`supabase_schema.sql`](./supabase_schema.sql) dosyasının tüm içeriğini kopyalayıp SQL Editor'e yapıştırın ve **Run** butonuna basın.
-4. Bu işlem;
-   - `notes` (Aşk Notları tablosu)
-   - `photos` (Fotoğraf Galerisi tablosu)
-   - `comments` (Yorumlar tablosu)
-   - `couples-photos` (Herkese açık Depolama / Storage Bucket'ı)
-   - Gerekli tüm RLS (Row Level Security) okuma/yazma/silme izinlerini tek seferde eksiksiz kuracaktır.
+4. Bu işlem; `notes`, `photos`, `comments`, `likes` tablolarını, gerekli RLS politikalarını ve **private** `couple-photos` depolama bucket'ını oluşturur.
+
+> Zaten kurulu bir projeyi güvenli hâle getirmek için (anon erişimini kapatmak, bucket'ı private yapmak) [`supabase/migrations/20261005_auth_only_rls.sql`](./supabase/migrations/20261005_auth_only_rls.sql) betiğini çalıştırın.
+
+### 2. Giriş hesapları
+
+Hesaplar Supabase panelinden oluşturulur; uygulama bunları görünen adlara eşler:
+
+| Ekranda görünen | Supabase Auth e-postası |
+| --- | --- |
+| 👨‍🦱 Yaşar | `yasar@sevgunlugu.com` |
+| 👩‍🦰 Beyza | `beyza@sevgunlugu.com` |
+
+1. Supabase Panel → **Authentication → Users → Add user**
+2. Yukarıdaki e-posta adresini ve güçlü bir şifre yazın.
+3. **Auto Confirm User** seçeneğini işaretleyin (e-posta doğrulaması beklenmesin diye).
+4. Aynı işlemi ikinci hesap için tekrarlayın.
+
+> Giriş ekranında kullanıcı e-posta yazmaz; sadece kim olduğunu seçip şifresini girer.
+
+### 3. Güvenlik ayarları (önerilir)
+
+- **Authentication → Sign In / Providers**: "Allow new users to sign up" seçeneğini **kapatın**. Böylece dışarıdan kimse kendi hesabını oluşturamaz.
 
 ---
 
-## ⚙️ Çevre Değişkenleri (.env.local)
+## ⚙️ Çevre Değişkenleri (.env)
 
-Supabase projenizin **Project Settings -> API** bölümünden URL ve Anon Key bilgilerinizi alın ve projedeki `.env.local` dosyasına yapıştırın:
+Supabase projenizin **Project Settings → API** bölümünden URL ve Anon Key bilgilerinizi alın ve projedeki `.env` dosyasına yazın:
 
 ```env
 VITE_SUPABASE_URL=https://projeniz.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 ```
 
-*(Not: Bu bilgiler girilmediğinde uygulama otomatik olarak akıllı Demo Modunda açılır ve yerel tarayıcı hafızasıyla test edilebilir).*
+> Anon key tek başına veriye erişemez: tüm tablolar RLS ile korunur ve yalnızca giriş yapmış kullanıcıya izin verir. Yine de bu dosya `.gitignore` ile korunur ve repoya gönderilmez.
+>
+> Giriş bilgileri (kullanıcı adı/şifre) **artık `.env` dosyasında tutulmaz**.
+
+*(Not: Bu bilgiler girilmediğinde uygulama otomatik olarak akıllı Demo Modunda açılır ve yerel tarayıcı hafızasıyla test edilebilir.)*
 
 ---
 
 ## 🚀 Yerel Olarak Çalıştırma
-
-Projeyi bilgisayarınızda çalıştırmak için:
 
 ```bash
 # Bağımlılıkları yükleyin
@@ -111,11 +138,24 @@ git push -u origin main
 
 ### 2. Vercel'e Dağıtım
 1. [vercel.com](https://vercel.com) adresine giriş yapın.
-2. **Add New... -> Project** seçeneğine tıklayıp GitHub deponuzu seçin.
+2. **Add New... → Project** seçeneğine tıklayıp GitHub deponuzu seçin.
 3. **Environment Variables** bölümüne şu iki anahtarı ekleyin:
    - `VITE_SUPABASE_URL`: Supabase Proje URL'niz
    - `VITE_SUPABASE_ANON_KEY`: Supabase Anon Anahtarınız
-4. **Deploy** butonuna basın. Birkaç saniye içinde siteniz dünya çapında canlıya geçecektir!
+4. **Deploy** butonuna basın.
+
+> **Önemli sıralama:** Veritabanını kilitleyen SQL betiği, giriş sistemi canlıya çıktıktan **sonra** çalıştırılmalıdır. Aksi hâlde eski sürüm site bir süre veriye erişemez.
+
+---
+
+## 🔒 Güvenlik Özeti
+
+| Katman | Durum |
+| --- | --- |
+| Şifre saklama | Kodda/repoda/`.env` içinde şifre **yok**; doğrulama Supabase Auth'ta |
+| Tablo erişimi | Yalnızca `authenticated`; `anon` için okuma/yazma/silme kapalı |
+| Fotoğraflar | Private bucket + süreli imzalı adresler |
+| Yeni kayıt | Panelden kapatılması önerilir |
 
 ---
 

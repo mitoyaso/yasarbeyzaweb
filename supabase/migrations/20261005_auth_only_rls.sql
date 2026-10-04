@@ -1,78 +1,65 @@
 -- ==============================================================================
--- YAŞAR & BEYZA AŞK GÜNLÜĞÜ - SUPABASE VERİTABANI VE DEPOLAMA KURULUM ŞEMASI
+-- MIGRATION: Supabase Auth'a geçiş — gerçek koruma
+-- Tarih: 2026-10-05
 -- ==============================================================================
--- Bu SQL kodlarını Supabase kontrol panelinizdeki "SQL Editor" sekmesine yapıştırıp
--- "RUN" butonuna basarak tüm tabloları, depolama alanını ve izinleri tek seferde
--- oluşturabilirsiniz.
+-- Bu betik şunları yapar:
+--   1. Veritabanındaki 4 tabloda "giriş yapmamış (anon)" erişimini tamamen kaldırır
+--   2. Sadece giriş yapmış kullanıcılara (authenticated) izin verir
+--   3. Fotoğraf bucket'ını herkese açık olmaktan çıkarır (private)
+--   4. Fotoğraflara yalnızca giriş yapmış kullanıcıların erişmesini sağlar
 --
--- GÜVENLİK MODELİ (Supabase Auth):
---   - Tablolara ve fotoğraflara YALNIZCA giriş yapmış kullanıcılar erişebilir.
---   - Giriş yapmamış (anon) istemcilerin hiçbir okuma/yazma/silme yetkisi yoktur.
---   - Fotoğraf bucket'ı private'tır; görseller süreli imzalı adreslerle gösterilir.
+-- KULLANIM: Supabase Panel -> SQL Editor -> Yeni Sorgu -> TÜM dosyayı yapıştır -> RUN
 --
--- KURULUM SIRASI:
---   1. Bu betiği çalıştırın.
---   2. Supabase Panel -> Authentication -> Users altında hesapları oluşturun:
---        yasar@sevgunlugu.com   (Auto Confirm User işaretli)
---        beyza@sevgunlugu.com   (Auto Confirm User işaretli)
---   3. Authentication -> Sign In / Providers altında "Allow new users to sign up"
---      seçeneğini KAPATIN.
+-- ÖN KOŞUL (betik bunu kendisi kontrol eder):
+--   Authentication -> Users altında şu iki hesap tanımlı olmalı:
+--     yasar@sevgunlugu.com
+--     beyza@sevgunlugu.com
+--   Hesaplar yoksa betik kendini durdurur ve hiçbir değişiklik yapmaz.
+--   (Böylece siteyi yanlışlıkla kilitleyemezsin.)
 --
 -- NOT: Bu betik tekrar tekrar çalıştırılabilir (idempotent).
 -- ==============================================================================
 
 -- ------------------------------------------------------------------------------
--- 1. NOTLAR TABLOSU (notes)
+-- 0) GÜVENLİK KONTROLÜ: iki hesap gerçekten var mı?
 -- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.notes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    sender TEXT NOT NULL CHECK (sender IN ('Yaşar', 'Beyza')),
-    content TEXT NOT NULL
-);
+DO $$
+DECLARE eksik int;
+BEGIN
+    SELECT 2 - count(*) INTO eksik
+    FROM auth.users
+    WHERE email IN ('yasar@sevgunlugu.com', 'beyza@sevgunlugu.com');
+
+    IF eksik > 0 THEN
+        RAISE EXCEPTION
+            'DURDURULDU: % adet hesap Supabase Auth icinde bulunamadi. Once Authentication -> Users altinda yasar@sevgunlugu.com ve beyza@sevgunlugu.com hesaplarini olusturun, sonra bu betigi tekrar calistirin. (Hicbir degisiklik yapilmadi.)',
+            eksik;
+    END IF;
+END $$;
 
 -- ------------------------------------------------------------------------------
--- 2. FOTOĞRAFLAR TABLOSU (photos)
+-- 1) Tablolardaki anon (giriş yapmamış) politikalarını kaldır
+--    Politika adları önceki kurulumlarda farklı yazılmış olabileceği için
+--    isimle değil, "anon veya public rolüne açık olan" kriteriyle temizlenir.
 -- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.photos (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    url TEXT NOT NULL,
-    storage_path TEXT NOT NULL,
-    caption TEXT DEFAULT '',
-    uploaded_by TEXT NOT NULL CHECK (uploaded_by IN ('Yaşar', 'Beyza'))
-);
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN
+        SELECT tablename, policyname
+        FROM pg_policies
+        WHERE schemaname = 'public'
+          AND tablename IN ('notes', 'photos', 'comments', 'likes')
+          AND (roles && ARRAY['anon', 'public']::name[])
+    LOOP
+        EXECUTE format('DROP POLICY %I ON public.%I', r.policyname, r.tablename);
+        RAISE NOTICE 'Kaldirildi: %.%', r.tablename, r.policyname;
+    END LOOP;
+END $$;
 
 -- ------------------------------------------------------------------------------
--- 3. YORUMLAR TABLOSU (comments)
+-- 2) Sadece giriş yapmış kullanıcılar için politikalar
 -- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.comments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    photo_id UUID NOT NULL REFERENCES public.photos(id) ON DELETE CASCADE,
-    sender TEXT NOT NULL CHECK (sender IN ('Yaşar', 'Beyza')),
-    comment_text TEXT NOT NULL
-);
-
--- ------------------------------------------------------------------------------
--- 4. BEĞENİLER TABLOSU (likes)
--- ------------------------------------------------------------------------------
-CREATE TABLE IF NOT EXISTS public.likes (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
-    photo_id UUID NOT NULL REFERENCES public.photos(id) ON DELETE CASCADE,
-    sender TEXT NOT NULL CHECK (sender IN ('Yaşar', 'Beyza')),
-    CONSTRAINT unique_like_per_user_per_photo UNIQUE (photo_id, sender)
-);
-
--- ==============================================================================
--- 5. ROW LEVEL SECURITY (RLS) — SADECE GİRİŞ YAPMIŞ KULLANICILAR
--- ==============================================================================
--- PostgreSQL "CREATE POLICY IF NOT EXISTS" desteklemediği için önce DROP edilir.
-
--- Notes
-ALTER TABLE public.notes ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Giris yapan notlari gorebilir" ON public.notes;
 CREATE POLICY "Giris yapan notlari gorebilir"
 ON public.notes FOR SELECT TO authenticated USING (true);
@@ -84,9 +71,6 @@ ON public.notes FOR INSERT TO authenticated WITH CHECK (true);
 DROP POLICY IF EXISTS "Giris yapan not silebilir" ON public.notes;
 CREATE POLICY "Giris yapan not silebilir"
 ON public.notes FOR DELETE TO authenticated USING (true);
-
--- Photos
-ALTER TABLE public.photos ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Giris yapan fotograflari gorebilir" ON public.photos;
 CREATE POLICY "Giris yapan fotograflari gorebilir"
@@ -104,9 +88,6 @@ DROP POLICY IF EXISTS "Giris yapan fotograf silebilir" ON public.photos;
 CREATE POLICY "Giris yapan fotograf silebilir"
 ON public.photos FOR DELETE TO authenticated USING (true);
 
--- Comments
-ALTER TABLE public.comments ENABLE ROW LEVEL SECURITY;
-
 DROP POLICY IF EXISTS "Giris yapan yorumlari gorebilir" ON public.comments;
 CREATE POLICY "Giris yapan yorumlari gorebilir"
 ON public.comments FOR SELECT TO authenticated USING (true);
@@ -118,9 +99,6 @@ ON public.comments FOR INSERT TO authenticated WITH CHECK (true);
 DROP POLICY IF EXISTS "Giris yapan yorum silebilir" ON public.comments;
 CREATE POLICY "Giris yapan yorum silebilir"
 ON public.comments FOR DELETE TO authenticated USING (true);
-
--- Likes
-ALTER TABLE public.likes ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Giris yapan begenileri gorebilir" ON public.likes;
 CREATE POLICY "Giris yapan begenileri gorebilir"
@@ -134,21 +112,40 @@ DROP POLICY IF EXISTS "Giris yapan begeni silebilir" ON public.likes;
 CREATE POLICY "Giris yapan begeni silebilir"
 ON public.likes FOR DELETE TO authenticated USING (true);
 
--- Tablo yetkileri: anon'dan al, authenticated'e ver
+-- ------------------------------------------------------------------------------
+-- 3) Tablo yetkileri: anon'dan al, authenticated'e ver
+-- ------------------------------------------------------------------------------
 REVOKE ALL ON public.notes, public.photos, public.comments, public.likes FROM anon;
 GRANT SELECT, INSERT, UPDATE, DELETE
     ON public.notes, public.photos, public.comments, public.likes
     TO authenticated;
 
--- ==============================================================================
--- 6. STORAGE (DEPOLAMA BUCKET'I): 'couple-photos' — PRIVATE
--- ==============================================================================
--- DİKKAT: Bucket adı "couple-photos" (çoğul değil). Uygulama kodu bu adı kullanır.
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('couple-photos', 'couple-photos', false)
-ON CONFLICT (id) DO UPDATE SET public = false;
+-- ------------------------------------------------------------------------------
+-- 4) Fotoğraf bucket'ını private yap
+-- ------------------------------------------------------------------------------
+UPDATE storage.buckets SET public = false WHERE id = 'couple-photos';
 
--- Yalnızca giriş yapmış kullanıcılar için erişim politikaları
+-- ------------------------------------------------------------------------------
+-- 5) storage.objects üzerindeki anon'a açık politikaları kaldır
+-- ------------------------------------------------------------------------------
+DO $$
+DECLARE r record;
+BEGIN
+    FOR r IN
+        SELECT policyname
+        FROM pg_policies
+        WHERE schemaname = 'storage'
+          AND tablename = 'objects'
+          AND (roles && ARRAY['anon', 'public']::name[])
+    LOOP
+        EXECUTE format('DROP POLICY %I ON storage.objects', r.policyname);
+        RAISE NOTICE 'Kaldirildi (storage): %', r.policyname;
+    END LOOP;
+END $$;
+
+-- ------------------------------------------------------------------------------
+-- 6) Storage politikaları: sadece giriş yapmış kullanıcılar
+-- ------------------------------------------------------------------------------
 DROP POLICY IF EXISTS "Giris yapanlar fotograflari gorebilir" ON storage.objects;
 CREATE POLICY "Giris yapanlar fotograflari gorebilir"
 ON storage.objects FOR SELECT TO authenticated
@@ -171,22 +168,16 @@ USING (bucket_id = 'couple-photos');
 
 GRANT SELECT, INSERT, UPDATE, DELETE ON storage.objects TO authenticated;
 
--- ==============================================================================
--- 7. İNDEKSLER (Hızlı sorgulama için)
--- ==============================================================================
-CREATE INDEX IF NOT EXISTS idx_notes_created_at ON public.notes(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_photos_created_at ON public.photos(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_comments_photo_id ON public.comments(photo_id);
-CREATE INDEX IF NOT EXISTS idx_likes_photo_id ON public.likes(photo_id);
-CREATE INDEX IF NOT EXISTS idx_likes_photo_sender ON public.likes(photo_id, sender);
-
--- ==============================================================================
--- 8. ŞEMA ÖNBELLEĞİNİ YENİLE + DOĞRULAMA
--- ==============================================================================
+-- ------------------------------------------------------------------------------
+-- 7) PostgREST şema önbelleğini yenile
+-- ------------------------------------------------------------------------------
 NOTIFY pgrst, 'reload schema';
 
+-- ------------------------------------------------------------------------------
+-- 8) DOĞRULAMA ÖZETİ (bu tabloyu görmelisin)
+-- ------------------------------------------------------------------------------
 SELECT 'Fotoğraf bucket private mı?' AS kontrol,
-       (SELECT CASE WHEN public THEN 'HAYIR' ELSE 'EVET - private' END
+       (SELECT CASE WHEN public THEN 'HAYIR - hala herkese acik!' ELSE 'EVET - private' END
         FROM storage.buckets WHERE id = 'couple-photos') AS sonuc
 UNION ALL
 SELECT 'Giriş yapmış kullanıcı için tablo politikası',
@@ -201,4 +192,10 @@ SELECT 'Anon için tablo politikası (0 olmalı)',
 UNION ALL
 SELECT 'Anon için storage politikası (0 olmalı)',
        (SELECT count(*)::text FROM pg_policies
-        WHERE schemaname = 'storage' AND 'anon' = ANY(roles));
+        WHERE schemaname = 'storage' AND 'anon' = ANY(roles))
+UNION ALL
+SELECT 'Tanımlı hesap sayısı (2 olmalı)',
+       (SELECT count(*)::text FROM auth.users
+        WHERE email IN ('yasar@sevgunlugu.com','beyza@sevgunlugu.com'));
+
+-- Tamamlandı 🎉

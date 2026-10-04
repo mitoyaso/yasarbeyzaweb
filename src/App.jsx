@@ -10,13 +10,20 @@ import Toast from './components/Toast';
 import SupabaseInfoModal from './components/SupabaseInfoModal';
 import { STORAGE_KEYS, SENDERS } from './lib/constants';
 import { getPhotos, getNotes, isSupabaseConfigured } from './lib/supabase';
+import {
+  getCurrentSession,
+  subscribeToAuthChanges,
+  signOutUser,
+  displayNameFromSession,
+} from './lib/auth';
 import { Camera, MessageSquareHeart, Heart, AlertTriangle } from 'lucide-react';
 
 export default function App() {
-  // Giriş Durumu
-  const [isAuthenticated, setIsAuthenticated] = useState(() => {
-    return localStorage.getItem(STORAGE_KEYS.IS_AUTHENTICATED) === 'true';
-  });
+  // Aktif Supabase Auth oturumu (giriş yapan kullanıcı)
+  const [session, setSession] = useState(null);
+
+  // Oturumun tarayıcıdan geri yüklenmesi tamamlandı mı?
+  const [isAuthReady, setIsAuthReady] = useState(!isSupabaseConfigured);
 
   // Aktif Gönderen (Yaşar veya Beyza)
   const [activeSender, setActiveSender] = useState(() => {
@@ -34,17 +41,66 @@ export default function App() {
   const [toast, setToast] = useState({ message: '', type: 'success' });
   const [showConfigModal, setShowConfigModal] = useState(false);
 
+  // Supabase yapılandırılmadıysa (demo modu) giriş aranmaz.
+  const isAuthenticated = !isSupabaseConfigured || Boolean(session);
+
+  // ---------------------------------------------------------------------------
+  // OTURUM YÖNETİMİ (Supabase Auth)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    // Eski sürümden kalan "giriş yapıldı" bayrağını temizle; artık geçersiz.
+    localStorage.removeItem(STORAGE_KEYS.LEGACY_IS_AUTHENTICATED);
+
+    if (!isSupabaseConfigured) {
+      // Demo modunda giriş aranmaz; isAuthReady zaten true olarak başlar.
+      return undefined;
+    }
+
+    let isCancelled = false;
+
+    getCurrentSession().then((restored) => {
+      if (!isCancelled) {
+        setSession(restored);
+        const name = displayNameFromSession(restored);
+        if (name) {
+          setActiveSender(name);
+          localStorage.setItem(STORAGE_KEYS.ACTIVE_SENDER, name);
+        }
+        setIsAuthReady(true);
+      }
+    });
+
+    const unsubscribe = subscribeToAuthChanges((nextSession) => {
+      setSession(nextSession);
+    });
+
+    return () => {
+      isCancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
   // Giriş Başarılı Olduğunda
-  const handleLoginSuccess = () => {
-    localStorage.setItem(STORAGE_KEYS.IS_AUTHENTICATED, 'true');
-    setIsAuthenticated(true);
+  const handleLoginSuccess = (newSession) => {
+    setSession(newSession ?? null);
+
+    const name = displayNameFromSession(newSession);
+    if (name) {
+      setActiveSender(name);
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_SENDER, name);
+    }
+
     showToast('Hoş geldin aşkım! Seni çok seviyorum 💖', 'success');
   };
 
   // Çıkış Yap
-  const handleLogout = () => {
-    localStorage.removeItem(STORAGE_KEYS.IS_AUTHENTICATED);
-    setIsAuthenticated(false);
+  const handleLogout = async () => {
+    await signOutUser();
+    setSession(null);
+    setPhotos([]);
+    setNotes([]);
+    setIsLoadingPhotos(true);
+    setIsLoadingNotes(true);
   };
 
   // Göndereni Değiştir
@@ -124,6 +180,19 @@ export default function App() {
       isCancelled = true;
     };
   }, [isAuthenticated]);
+
+  // Oturum henüz geri yüklenmediyse kısa bir bekleme ekranı göster
+  if (!isAuthReady) {
+    return (
+      <div className="relative min-h-screen flex items-center justify-center">
+        <FloatingHearts />
+        <div className="text-center relative z-10">
+          <span className="inline-block w-8 h-8 border-3 border-rose-400 border-t-transparent rounded-full animate-spin mb-3" />
+          <p className="text-sm font-medium text-rose-600">Aşk günlüğü açılıyor...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Giriş yapılmamışsa Giriş Ekranını Göster
   if (!isAuthenticated) {
