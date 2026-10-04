@@ -358,6 +358,31 @@ function araKomutu(mesajlar, kelime) {
   }
 }
 
+/** Belirli bir günün tüm mesajlarını döker (hikâyeyi okumak için). */
+function gunKomutu(mesajlar, gun, adet) {
+  const oGun = mesajlar.filter((m) => m.tarih === gun);
+  console.log(`\n${gun} tarihinde ${oGun.length} mesaj (ilk ${adet} tanesi):\n`);
+
+  for (const mesaj of oGun.slice(0, adet)) {
+    const saat = `${String(mesaj.saat).padStart(2, '0')}:${String(mesaj.dakika).padStart(2, '0')}`;
+    console.log(`  ${saat} ${mesaj.gonderen}: ${mesaj.metin.replace(/\n/g, ' / ').slice(0, 200)}`);
+  }
+}
+
+/** İki tarih arasındaki günlerin özetini döker (günde ilk N mesaj). */
+function aralikKomutu(mesajlar, bas, son, adet) {
+  const gunler = [...new Set(mesajlar.filter((m) => m.tarih >= bas && m.tarih <= son).map((m) => m.tarih))];
+
+  for (const gun of gunler) {
+    const oGun = mesajlar.filter((m) => m.tarih === gun);
+    console.log(`\n=== ${gun} (${oGun.length} mesaj) ===`);
+    for (const mesaj of oGun.slice(0, adet)) {
+      const saat = `${String(mesaj.saat).padStart(2, '0')}:${String(mesaj.dakika).padStart(2, '0')}`;
+      console.log(`  ${saat} ${mesaj.gonderen}: ${mesaj.metin.replace(/\n/g, ' / ').slice(0, 150)}`);
+    }
+  }
+}
+
 function yardim() {
   console.log(`
 EROS — WhatsApp dökümü işleyici
@@ -415,5 +440,14 @@ else {
     const adet = Number(argOku('--ornek', 150)) || 150;
     ornekKomutu(mesajlar, adet);
   } else if (process.argv.includes('--ara')) araKomutu(mesajlar, argOku('--ara', ''));
-  else yardim();
+  else if (process.argv.includes('--gun')) {
+    gunKomutu(mesajlar, argOku('--gun', ''), Number(argOku('--adet', 60)) || 60);
+  } else if (process.argv.includes('--aralik')) {
+    aralikKomutu(
+      mesajlar,
+      argOku('--bas', ''),
+      argOku('--son', ''),
+      Number(argOku('--adet', 12)) || 12
+    );
+  } else yardim();
 }

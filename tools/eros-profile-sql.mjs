@@ -80,14 +80,15 @@ ${sema}
 -- ------------------------------------------------------------------------------
 -- PROFİL KAYITLARI (${kayitlar.length} bölüm)
 -- ------------------------------------------------------------------------------
+-- ÖNEMLİ: Önce tüm hafıza silinir, sonra dosyadan yeniden yazılır.
+-- Böylece veritabanı HER ZAMAN bu dosyayla birebir aynı olur (eski/artık
+-- kalmış bölümler birikmez).
 BEGIN;
 
+DELETE FROM public.eros_memory;
+
 INSERT INTO public.eros_memory (baslik, icerik, sira) VALUES
-${degerler}
-ON CONFLICT (baslik) DO UPDATE
-  SET icerik = EXCLUDED.icerik,
-      sira = EXCLUDED.sira,
-      updated_at = now();
+${degerler};
 
 COMMIT;
 
