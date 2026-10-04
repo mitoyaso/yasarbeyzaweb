@@ -246,6 +246,26 @@ kontrol(
   document.querySelector('[role="dialog"][aria-label="Şifre Değiştir"]') === null,
   true
 );
+
+// ---------------------------------------------------------------------------
+// MENÜ ÇAKIŞMASI: sohbet açıkken "Anılar / Aşk Notları / Biz" menüleri
+// gizlenmeli (telefonda klavye açılınca yazı kutusunun üstüne biniyordu).
+// ---------------------------------------------------------------------------
+kontrol(
+  'Sohbet açıkken menüler gizlendi (gövde sınıfı)',
+  document.body.classList.contains('tam-ekran-katman'),
+  true
+);
+kontrol(
+  'Alt menü işaretlendi (CSS ile gizlenir)',
+  document.querySelector('nav.uygulama-alt-menu') !== null,
+  true
+);
+kontrol(
+  'Üst menü işaretlendi (CSS ile gizlenir)',
+  document.querySelector('header.uygulama-ust-menu') !== null,
+  true
+);
 kontrol('Öneri düğmeleri var', icerik.includes('sürprik fikri') || icerik.includes('sürpriz fikri'), true);
 kontrol(
   'Gizlilik uyarısı var (uzman değildir)',
@@ -292,6 +312,15 @@ if (gorunurAlan?.__klavye) {
 } else {
   kontrol('Görünür alan taklidi var', false, true);
 }
+
+// Sohbet kapanınca menüler geri gelmeli
+tiklaSecici(document, '[role="dialog"][aria-label="Eros"] button[aria-label="Kapat"]');
+await bekle(600);
+kontrol(
+  'Sohbet kapanınca menüler geri geldi',
+  !document.body.classList.contains('tam-ekran-katman'),
+  true
+);
 
 console.log('\n=== SONUÇ ===');
 console.log(`  ${basarisiz === 0 ? 'TÜM KONTROLLER GEÇTİ ✅' : `${basarisiz} kontrol BAŞARISIZ ❌`}`);

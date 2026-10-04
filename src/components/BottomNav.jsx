@@ -3,7 +3,7 @@ import { Camera, MessageSquareHeart, Sparkles } from 'lucide-react';
 
 export default function BottomNav({ activeTab, onSelectTab }) {
   return (
-    <nav className="sm:hidden fixed bottom-0 left-0 right-0 z-40 glass-panel bg-white/90 backdrop-blur-xl border-t border-rose-200/80 px-4 py-2 flex items-center justify-around shadow-2xl safe-area-pb">
+    <nav className="uygulama-alt-menu sm:hidden fixed bottom-0 left-0 right-0 z-40 glass-panel bg-white/90 backdrop-blur-xl border-t border-rose-200/80 px-4 py-2 flex items-center justify-around shadow-2xl safe-area-pb">
       <button
         type="button"
         onClick={() => onSelectTab('photos')}

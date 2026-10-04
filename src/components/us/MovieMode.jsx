@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { formatTurkishDate } from '../../lib/utils';
 import { useModalA11y } from '../../lib/useModalA11y';
+import { useTamEkranKatman } from '../../lib/useTamEkranKatman';
 import {
   X,
   Play,
@@ -38,6 +39,8 @@ export default function MovieMode({ photos, onClose }) {
 
   // Escape ile kapanma + odak tuzağı (kanca koşulsuz çağrılmalı)
   const dialogRef = useModalA11y({ onClose });
+  // Film oynarken menüleri gizle (yanlışlıkla sekme değiştirmeyi de önler)
+  useTamEkranKatman();
 
   const current = slides[index];
 

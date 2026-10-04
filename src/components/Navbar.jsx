@@ -11,7 +11,7 @@ export default function Navbar({
   const isYasar = activeSender === SENDERS.YASAR;
 
   return (
-    <header className="sticky top-0 z-40 w-full glass-panel bg-white/80 backdrop-blur-xl border-b border-rose-200/70 shadow-sm safe-area-pt">
+    <header className="uygulama-ust-menu sticky top-0 z-40 w-full glass-panel bg-white/80 backdrop-blur-xl border-b border-rose-200/70 shadow-sm safe-area-pt">
       <div className="max-w-5xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-2">
         {/* Logo ve İsimler */}
         <div className="flex items-center gap-3">

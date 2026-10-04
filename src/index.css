@@ -135,6 +135,19 @@
 }
 
 /* ==========================================================================
+   TAM EKRAN KATMAN AÇIKKEN MENÜLERİ GİZLE
+   --------------------------------------------------------------------------
+   Neden: Telefonda klavye açıldığında "Anılar / Aşk Notları / Biz" menüsü
+   sabit konumlu olduğu için klavyenin hemen üstüne gelip sohbet kutusunun
+   üstüne biniyordu. Tam ekran bir pencere açıkken bu menüler tamamen
+   gizlenir; böylece ne klavye ne de menü sohbeti engeller.
+   ========================================================================== */
+body.tam-ekran-katman .uygulama-ust-menu,
+body.tam-ekran-katman .uygulama-alt-menu {
+  display: none !important;
+}
+
+/* ==========================================================================
    SİNEMA MODU — yavaş yakınlaşma (Ken Burns)
    ========================================================================== */
 @keyframes kenBurns {

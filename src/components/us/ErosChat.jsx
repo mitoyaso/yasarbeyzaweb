@@ -14,6 +14,7 @@ import {
   yerelTemizle,
 } from '../../lib/erosChat';
 import { useModalA11y } from '../../lib/useModalA11y';
+import { useTamEkranKatman } from '../../lib/useTamEkranKatman';
 import { X, Send, Loader2, Sparkles, Trash2, HeartHandshake } from 'lucide-react';
 
 const ONERILER = [
@@ -29,6 +30,8 @@ const ONERILER = [
  */
 export default function ErosChat({ photos = [], notes = [], yazan, showToast, onClose }) {
   const dialogRef = useModalA11y({ onClose });
+  // Sohbet açıkken üst/alt menüleri gizle (klavye çakışması olmasın)
+  useTamEkranKatman();
   const panelRef = useRef(null);
   const listeRef = useRef(null);
   const girdiRef = useRef(null);
