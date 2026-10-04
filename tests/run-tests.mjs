@@ -10,6 +10,7 @@
 
 import { longestDailyStreak, computeStats, computeAchievements } from '../src/lib/achievements.js';
 import { createZip, textToBytes, crc32 } from '../src/lib/zip.js';
+import { thumbPathFor, THUMB_PREFIX } from '../src/lib/image.js';
 
 let toplamTest = 0;
 let basarisiz = 0;
@@ -89,6 +90,17 @@ kontrol('30 fotoğraf → albüm ustası kilitli', liste2.find((a) => a.id === '
 kontrol('60 not → mektup yazarı açıldı', liste2.find((a) => a.id === 'note-50').unlocked, true);
 kontrol('100 yorum → sohbet ustası açıldı', liste2.find((a) => a.id === 'comment-50').unlocked, true);
 kontrol('100 kalp → kalp yağmuru açıldı', liste2.find((a) => a.id === 'like-100').unlocked, true);
+
+// ==============================================================================
+bolum('ÖNİZLEME (THUMBNAIL) DOSYA YOLU');
+// ==============================================================================
+kontrol('kök dizindeki dosya', thumbPathFor('foto_123.jpg'), 'thumb_foto_123.jpg');
+kontrol('alt klasördeki dosya', thumbPathFor('album/foto_123.jpg'), 'album/thumb_foto_123.jpg');
+kontrol('çok seviyeli klasör', thumbPathFor('a/b/c.jpg'), 'a/b/thumb_c.jpg');
+kontrol('boş metin → null', thumbPathFor(''), null);
+kontrol('null → null', thumbPathFor(null), null);
+kontrol('tanımsız → null', thumbPathFor(undefined), null);
+kontrol('önek sabiti', THUMB_PREFIX, 'thumb_');
 
 // ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');

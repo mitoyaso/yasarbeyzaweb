@@ -108,3 +108,16 @@ export async function prepareImageForUpload(file) {
     if (typeof source.close === 'function') source.close();
   }
 }
+
+/**
+ * Yalnızca thumbnail üretir.
+ * Eski (önizlemesi olmayan) fotoğraflara sonradan önizleme eklemek için kullanılır.
+ */
+export async function createThumbnailFor(blob) {
+  const source = await loadDrawable(blob);
+  try {
+    return await drawToJpegBlob(source, MAX_THUMB_EDGE, THUMB_QUALITY);
+  } finally {
+    if (typeof source.close === 'function') source.close();
+  }
+}

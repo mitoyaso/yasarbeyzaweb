@@ -1,6 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_BUCKET_NAME, SIGNED_URL_TTL_SECONDS, STORAGE_KEYS } from './constants';
-import { prepareImageForUpload, thumbPathFor } from './image';
+import { prepareImageForUpload, thumbPathFor, createThumbnailFor } from './image';
 
 // Ortam değişkenlerinden Supabase bilgilerini al
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -789,8 +789,7 @@ export async function deleteNote(noteId) {
  * Tek bir dosya için imzalı (süreli) adres üretir.
  * Yedekleme indirmesi gibi uygulama dışı kullanımlar için.
  */
-export async function createPhotoSignedUrl(storagePath, expiresIn = 600) {
-  if (!isSupabaseConfigured || !storagePath) return null;
+export async function createPhotoSignedUrl(storagePath, expiresIn = 600) {  if (!isSupabaseConfigured || !storagePath) return null;
 
   const { data, error } = await supabase.storage
     .from(SUPABASE_BUCKET_NAME)
@@ -802,6 +801,86 @@ export async function createPhotoSignedUrl(storagePath, expiresIn = 600) {
   }
 
   return toAbsoluteStorageUrl(data?.signedUrl);
+}
+
+/**
+ * Önizlemesi (thumbnail) olmayan eski fotoğraflar için önizleme üretir.
+ *
+ * Yeni yüklemelerde önizleme otomatik oluşur; bu fonksiyon yalnızca
+ * bu özellik eklenmeden ÖNCE yüklenmiş fotoğraflar için bir kerelik bakımdır.
+ * Fotoğrafı indirir, tarayıcıda küçültür ve storage'a yükler.
+ */
+export async function backfillMissingThumbnails({ onProgress } = {}) {
+  const bildir = (mesaj, tamamlanan, toplam) => {
+    if (typeof onProgress === 'function') onProgress({ mesaj, tamamlanan, toplam });
+  };
+
+  if (!isSupabaseConfigured) {
+    throw new Error('Bu bakım yalnızca Supabase bağlıyken yapılabilir.');
+  }
+
+  bildir('Fotoğraflar kontrol ediliyor...', 0, 0);
+  const photos = await getPhotos();
+
+  const hedefler = [];
+  for (const photo of photos) {
+    if (!photo?.storage_path || /^(demo|local)/i.test(photo.storage_path)) continue;
+    if (!photo.url) continue;
+
+    const dosyaAdi = thumbPathFor(photo.storage_path).split('/').pop();
+
+    const { data, error } = await supabase.storage
+      .from(SUPABASE_BUCKET_NAME)
+      .list('', { search: dosyaAdi, limit: 1 });
+
+    if (error) {
+      console.warn('Önizleme kontrolü yapılamadı:', error.message);
+      continue;
+    }
+
+    const varMi = (data ?? []).some((item) => item.name === dosyaAdi);
+    if (!varMi) hedefler.push(photo);
+  }
+
+  let olusturulan = 0;
+  let basarisiz = 0;
+
+  for (let index = 0; index < hedefler.length; index += 1) {
+    const photo = hedefler[index];
+    bildir(`Önizleme üretiliyor (${index + 1}/${hedefler.length})`, index, hedefler.length);
+
+    try {
+      const response = await fetch(photo.url);
+      if (!response.ok) throw new Error('Fotoğraf indirilemedi');
+
+      const blob = await response.blob();
+      const thumb = await createThumbnailFor(blob);
+      const thumbPath = thumbPathFor(photo.storage_path);
+
+      const { error } = await supabase.storage
+        .from(SUPABASE_BUCKET_NAME)
+        .upload(thumbPath, thumb.blob, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: 'image/jpeg',
+        });
+
+      if (error) throw error;
+      olusturulan += 1;
+    } catch (err) {
+      console.warn('Önizleme üretilemedi:', photo.storage_path, err);
+      basarisiz += 1;
+    }
+  }
+
+  bildir('Bitti', hedefler.length, hedefler.length);
+
+  return {
+    kontrolEdilen: photos.length,
+    eksikOlan: hedefler.length,
+    olusturulan,
+    basarisiz,
+  };
 }
 
 // ==============================================================================
