@@ -55,9 +55,16 @@ export default function MemoryMap({ photos = [], onClose, onPhotoUpdated, showTo
 
     (async () => {
       try {
-        // Harita kütüphanesi ve stili yalnızca bu pencere açıldığında indirilir.
+        // Harita kütüphanesi yalnızca bu pencere açıldığında indirilir.
         const module = await import('leaflet');
-        await import('leaflet/dist/leaflet.css');
+
+        // Stil de ayrı bir pakette. Yüklenmesini BEKLEMİYORUZ: bir ağ aksiliğinde
+        // harita sonsuza kadar "yükleniyor" ekranında takılı kalmasın.
+        // (Stil geldiğinde tarayıcı görünümü kendiliğinden düzeltir.)
+        import('leaflet/dist/leaflet.css').catch((stilHatasi) => {
+          console.warn('Harita stili yüklenemedi:', stilHatasi);
+        });
+
         const L = module.default ?? module;
         if (cancelled || !mapHostRef.current) return;
 

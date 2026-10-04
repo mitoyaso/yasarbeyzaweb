@@ -202,6 +202,11 @@ npm test
 # ekrana çizildiğini doğrular; "beyaz ekran" hatalarını yakalar.
 npm run test:boot
 
+# Giriş yapılmış arayüz testi — ÖNCE "npm run build" gerekir.
+# Sahte oturum + sahte veriyle tüm panelleri (çöp kutusu, harita, quiz, oyun,
+# film) açar ve çizildiklerini doğrular.
+npm run test:app
+
 # Kod kalitesi
 npm run lint
 ```
