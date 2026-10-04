@@ -41,7 +41,7 @@ export default function PhotoCard({
     return () => {
       mounted = false;
     };
-  }, [photo.id]);
+  }, [photo.id, activeSender]);
 
   const handleLike = async () => {
     if (isLikeLoading) return;

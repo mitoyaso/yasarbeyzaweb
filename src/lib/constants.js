@@ -2,42 +2,63 @@
 // UYGULAMA SABİTLERİ VE GÜVENLİK AYARLARI
 // ==============================================================================
 
-// Giriş Bilgileri (.env dosyasından okunur)
-// ÖNEMLİ: Değerler her kullanımda import.meta.env üzerinden DINAMIK olarak okunur.
-//         Böylece dev server HMR veya sayfa yenilemede stale değer sorunu olmaz.
+// ==============================================================================
+// GIRIŞ BILGILERI (.env dosyasindan okunur)
+// ==============================================================================
+// .env dosyasini degistirdikten sonra:
+//   1. Vite dev server CALISIYORSA: Kapatip "npm run dev" ile TEKRAR BASLAT
+//      (.env dosyalari SADECE uygulama BASLARKEN okunur, sonradan F5 yetmez)
+//   2. Ardindan tarayicida sayfayi F5 ile yenile
 //
-// .env dosyasını değiştirdiysen tarayıcıda F5 ile sayfayı YENİLE (veya sunucuyu yeniden başlat).
+// Bu dosyada ASLA dogrudan sifre yazilmaz! Okuma sadece import.meta.env uzerinden olur.
+// ==============================================================================
 
+function readEnvUser() {
+  const v = import.meta.env.VITE_AUTH_USERNAME;
+  return (typeof v === 'string' ? v : '').trim();
+}
+
+function readEnvPass() {
+  const v = import.meta.env.VITE_AUTH_PASSWORD;
+  return (typeof v === 'string' ? v : '').trim();
+}
+
+/**
+ * Ortam değişkenlerinden güncel giriş bilgilerini döner (her çağrıda tekrar okur).
+ */
 export function getAuthCredentials() {
   return {
-    KULLANICI_ADI: (import.meta.env.VITE_AUTH_USERNAME || '').trim(),
-    SIFRE: (import.meta.env.VITE_AUTH_PASSWORD || '').trim(),
+    KULLANICI_ADI: readEnvUser(),
+    SIFRE: readEnvPass(),
   };
 }
 
+/**
+ * Ortam değişkenlerinin (kullanıcı adı + şifre) dolu olup olmadığını kontrol eder.
+ * Debug için degerlerin karakter uzunluklarini da doner (guvenlik icin icerigi degil).
+ */
 export function isAuthEnvSet() {
-  const c = getAuthCredentials();
-  return Boolean(c.KULLANICI_ADI && c.SIFRE);
+  const u = readEnvUser();
+  const p = readEnvPass();
+  return {
+    ok: Boolean(u && p),
+    usernameLength: u.length,
+    passwordLength: p.length,
+    usernameFirstChar: u.charAt(0),
+  };
 }
 
-// Geriye dönük uyumluluk: AUTH_CREDENTIALS nesnesi (çoğu yerde kullanılıyor)
-export const AUTH_CREDENTIALS = new Proxy(
-  {},
-  {
-    get(_target, prop) {
-      const c = getAuthCredentials();
-      return c[prop];
-    },
-    ownKeys() {
-      return ['KULLANICI_ADI', 'SIFRE'];
-    },
-    getOwnPropertyDescriptor() {
-      return { enumerable: true, configurable: true };
-    },
-  }
-);
+// Geriye dönük uyumluluk: AUTH_CREDENTIALS (eski kodlar bozulmasin)
+export const AUTH_CREDENTIALS = {
+  get KULLANICI_ADI() {
+    return readEnvUser();
+  },
+  get SIFRE() {
+    return readEnvPass();
+  },
+};
 
-export const IS_AUTH_ENV_SET = isAuthEnvSet();
+export const IS_AUTH_ENV_SET = isAuthEnvSet().ok;
 
 // Yerel Depolama Anahtarları (LocalStorage)
 export const STORAGE_KEYS = {

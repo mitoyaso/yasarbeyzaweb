@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AUTH_CREDENTIALS, isAuthEnvSet } from '../lib/constants';
+import { getAuthCredentials, isAuthEnvSet } from '../lib/constants';
 import { triggerHeartConfetti } from '../lib/utils';
 import { Heart, Lock, User, Eye, EyeOff } from 'lucide-react';
 
@@ -7,21 +7,45 @@ export default function LoginModal({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    setError('');
+    setError(null);
 
-    const envSet = isAuthEnvSet();
-    const creds = AUTH_CREDENTIALS;
+    const envInfo = isAuthEnvSet();
 
-    if (!envSet || !creds.KULLANICI_ADI || !creds.SIFRE) {
+    // Geliştirme modunda debug log (guvenli: icerik gostermez, sadece uzunluk)
+    console.log('[LoginModal DEBUG] env okunan degerler:', {
+      usernameLen: envInfo.usernameLength,
+      passwordLen: envInfo.passwordLength,
+      ok: envInfo.ok,
+      usernameFirstChar: envInfo.usernameFirstChar,
+    });
+
+    if (!envInfo.ok) {
       setError(
-        '⚠️ Ortam değişkenleri henüz okunamadı! Lütfen tarayıcıda sayfayı F5 ile yenileyin. ' +
-        'Hala olmazsa terminalde çalışan Vite sunucusunu Ctrl+C ile kapatıp "npm run dev" komutuyla tekrar başlatın. ' +
-        '.env dosyasındaki değişiklikler sadece uygulama başlarken yüklenir.'
+        <div className="space-y-2 leading-relaxed">
+          <div className="font-bold text-base">⚠️ Ortam değişkenleri henüz okunamadı!</div>
+          <div className="bg-white/60 rounded-lg p-2.5 text-xs font-mono space-y-0.5">
+            <div>• Okunan kullanıcı adı uzunluğu: <span className="font-bold text-rose-900">{envInfo.usernameLength}</span> (olması gereken: 10)</div>
+            <div>• Okunan şifre uzunluğu: <span className="font-bold text-rose-900">{envInfo.passwordLength}</span> (olması gereken: 14)</div>
+            <div>• Durum: <span className="font-bold">{envInfo.ok ? '✅ OK' : '❌ BOŞ / EKSİK'}</span></div>
+          </div>
+          <div className="mt-2">
+            <div className="font-bold mb-1">‼️ ÇÖZÜM (sırayla yap):</div>
+            <ol className="list-decimal list-inside space-y-0.5 text-xs">
+              <li>Terminalde çalışan Vite penceresini bul ve Ctrl+C ile KAPAT</li>
+              <li>Tekrar <code className="bg-white/70 px-1.5 py-0.5 rounded">npm run dev</code> yaz ve çalıştır</li>
+              <li>Yeni gelen http://localhost:... adresinden sayfayı aç</li>
+              <li>Son olarak sayfayı F5 ile yenile</li>
+            </ol>
+          </div>
+          <div className="text-xs italic mt-2 opacity-90">
+            .env dosyaları SADECE uygulama BAŞLARKEN okunur, sadece tarayıcıda F5 atmak YETMEZ!
+          </div>
+        </div>
       );
       return;
     }
@@ -29,8 +53,19 @@ export default function LoginModal({ onLoginSuccess }) {
     setIsSubmitting(true);
 
     setTimeout(() => {
+      const creds = getAuthCredentials();
       const cleanUser = username.trim().toLowerCase();
       const cleanPass = password.trim();
+
+      // Debug - yazılan değerlerin uzunluklari (guvenli: icerik yok)
+      console.log('[LoginModal DEBUG] giris karsilastirma:', {
+        girilenUserLen: cleanUser.length,
+        girilenPassLen: cleanPass.length,
+        beklenenUserLen: creds.KULLANICI_ADI.length,
+        beklenenPassLen: creds.SIFRE.length,
+        userMatch: cleanUser === creds.KULLANICI_ADI.toLowerCase(),
+        passMatch: cleanPass === creds.SIFRE,
+      });
 
       if (
         cleanUser === creds.KULLANICI_ADI.toLowerCase() &&
@@ -39,7 +74,21 @@ export default function LoginModal({ onLoginSuccess }) {
         triggerHeartConfetti();
         onLoginSuccess();
       } else {
-        setError('Kullanıcı adı veya şifre hatalı! Lütfen tekrar deneyin sevgilim 💔');
+        setError(
+          <div className="space-y-2 leading-relaxed">
+            <div className="font-bold text-base">💔 Kullanıcı adı veya şifre hatalı!</div>
+            <div className="bg-white/60 rounded-lg p-2.5 text-xs">
+              <div className="font-bold mb-1">DEBUG:</div>
+              <div>• Girdiğin kullanıcı adı uzunluğu: {cleanUser.length}</div>
+              <div>• Girdiğin şifre uzunluğu: {cleanPass.length}</div>
+              <div>• Beklenen kullanıcı adı uzunluğu: {creds.KULLANICI_ADI.length}</div>
+              <div>• Beklenen şifre uzunluğu: {creds.SIFRE.length}</div>
+              <div className="mt-1.5 text-[11px] italic opacity-80">
+                İpucu: Şifren 14 haneli, kullanıcı adın 10 haneli. Türkçe karakter olmadan yazdığına emin ol!
+              </div>
+            </div>
+          </div>
+        );
         setIsSubmitting(false);
       }
     }, 400);
