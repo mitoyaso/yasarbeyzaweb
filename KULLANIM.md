@@ -68,8 +68,35 @@ Burada dört bölüm var:
 | --- | --- |
 | **İstatistikler** | Kaç anı, not, yorum, kalp; birlikte kaç gün; en uzun seri |
 | **Başarımlar** | 11 hedef (25 fotoğraf, 50 not, 100 kalp, 1. yıl…). Kilitliler ilerleme çubuğuyla görünür |
-| **Eğlence** | **Anı Eşleştirme Oyunu** (kendi fotoğraflarınızla hafıza oyunu) ve **Bizim Filmimiz** (müzikli tam ekran slayt gösterisi) |
+| **Eğlence** | **Anı Eşleştirme Oyunu**, **Bizim Filmimiz**, **Birbirini Tanıma Testi**, **Anı Haritası** |
 | **Anılarımızı Koru** | Yedekleme ve bakım |
+| **Çöp Kutusu** | Silinen anılar ve notlar (30 gün geri alınabilir) |
+| **Güvenlik** | İki adımlı doğrulama (2FA) |
+| **Bildirimler** | Yeni anı/not geldiğinde haber verme |
+
+### Birbirini Tanıma Testi
+Her soruda iki şey yazarsın: **kendi cevabın** ve **partnerin için tahminin**.
+Tahminin onun cevabıyla eşleşirse puan kazanırsın. Cevaplar otomatik kaydedilir;
+sonuç ekranında her soru için tahminin ve onun gerçek cevabı yan yana görünür.
+
+### Anı Haritası
+- Konumu olan anılar haritada **kalp işaretleriyle** görünür; işarete dokununca
+  fotoğraf, anı notu ve yer adı açılır.
+- **Konum eklemek için:** alttaki şeritten bir anı seç → haritada o yere dokun →
+  istersen *"Kapadokya"* gibi bir isim yaz → **Kaydet**.
+- **📍 Konumum** düğmesi telefonunun bulunduğu yeri kullanır.
+- Harita yalnızca açtığında indirilir, bu yüzden siteyi yavaşlatmaz.
+
+### Çöp Kutusu (geri alınabilir silme)
+Yanlışlıkla silinen bir anı veya not **30 gün** boyunca çöp kutusunda bekler:
+
+- **Geri al** → olduğu yere döner (fotoğraf dosyası silinmemiştir)
+- **Sil** → iki kez dokunmanı ister (*"Emin misin?"*), sonra kalıcı olarak silinir
+- Her kaydın yanında kaç gün kaldığı yazar
+
+> Silme bildiriminde *"çöp kutusuna taşındı"* yazıyorsa geri alınabilir;
+> *"kalıcı olarak silindi"* yazıyorsa geri alınamaz.
+
 
 ### Bizim Filmimiz
 Başlattıktan sonra:
@@ -154,8 +181,9 @@ Mevcut eski fotoğraflar için *"Eski fotoğraflara önizleme ekle"* düğmesini
 çalıştırın.
 
 **Bir anıyı yanlışlıkla sildim.**
-Şu an silme kalıcıdır; bu yüzden düzenli **tam yedek** almak önemlidir. Geri
-alınabilir silme (çöp kutusu) planlanmıştır ve veritabanı güncellemesi beklemektedir.
+**Bizim Köşemiz → Çöp Kutusu** bölümünden **Geri al** diyebilirsin; silinen anılar ve
+notlar 30 gün boyunca orada bekler. Yine de düzenli **tam yedek** almak en sağlam
+korumadır.
 
 **Site bir gün açılmazsa?**
 Ücretsiz Supabase projeleri uzun süre kullanılmazsa duraklatılır. Depoda bunu önleyen

@@ -210,13 +210,31 @@ npm run lint
 
 ---
 
-## 🗺️ Yol Haritası (planlanan)
+## 🗺️ Yol Haritası
 
-- Çöp kutusu: silinen anıları 30 gün içinde geri getirme
-- Canlı akış: yeni anı/not/yorum sayfa yenilemeden düşsün + bildirim
-- Anı haritası: fotoğraflara konum ekleyip haritada görme
-- Birbirini tanıma quizi
+Tamamlananlar (hepsi canlıda):
+
+- ✅ Telefona kurulabilir uygulama (PWA) + çevrimdışı kabuk
+- ✅ Yükleme öncesi sıkıştırma, thumbnail, HEIC düzeltmesi
+- ✅ Tam yedek (ZIP) / veri yedeği (JSON)
+- ✅ Başarımlar, anı eşleştirme oyunu, "Bizim Filmimiz"
+- ✅ Birbirini tanıma testi (quiz)
+- ✅ Anı haritası (konum ekleme + haritada görüntüleme)
+- ✅ Çöp kutusu (30 gün geri alınabilir silme)
+- ✅ Canlı akış + sistem bildirimleri
+- ✅ İki adımlı doğrulama (2FA), duraklama koruması, 113 otomatik test
+
+Sıradaki fikirler:
+
+- Sesli aşk notları, video/kısa klip desteği
+- Albümler ve zaman tüneli görünümü
+- Zaman kapsülü (gelecekte açılacak mektup)
+- Gerçek arka plan bildirimleri (site kapalıyken Web Push)
 - Kod bölme: ilk yükleme paketini küçültme
+
+> **Not:** Quiz, anı haritası ve çöp kutusu; veritabanı güncellemesini
+> ([`20261005_phase3_trash_map_realtime_quiz.sql`](./supabase/migrations/20261005_phase3_trash_map_realtime_quiz.sql))
+> bekler. Bu sütun/tablo yokken ilgili bölümler kendini gizler ve site normal çalışır.
 
 
 ---
