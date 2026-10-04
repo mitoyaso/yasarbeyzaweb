@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AUTH_CREDENTIALS, IS_AUTH_ENV_SET } from '../lib/constants';
+import { AUTH_CREDENTIALS, isAuthEnvSet } from '../lib/constants';
 import { triggerHeartConfetti } from '../lib/utils';
 import { Heart, Lock, User, Eye, EyeOff } from 'lucide-react';
 
@@ -14,8 +14,15 @@ export default function LoginModal({ onLoginSuccess }) {
     e.preventDefault();
     setError('');
 
-    if (!IS_AUTH_ENV_SET) {
-      setError('⚠️ Ortam değişkenleri okunamadı! Lütfen terminalde çalışan Vite sunucusunu kapatıp tekrar başlat (npm run dev). .env dosyası sadece başlangıçta okunur.');
+    const envSet = isAuthEnvSet();
+    const creds = AUTH_CREDENTIALS;
+
+    if (!envSet || !creds.KULLANICI_ADI || !creds.SIFRE) {
+      setError(
+        '⚠️ Ortam değişkenleri henüz okunamadı! Lütfen tarayıcıda sayfayı F5 ile yenileyin. ' +
+        'Hala olmazsa terminalde çalışan Vite sunucusunu Ctrl+C ile kapatıp "npm run dev" komutuyla tekrar başlatın. ' +
+        '.env dosyasındaki değişiklikler sadece uygulama başlarken yüklenir.'
+      );
       return;
     }
 
@@ -26,8 +33,8 @@ export default function LoginModal({ onLoginSuccess }) {
       const cleanPass = password.trim();
 
       if (
-        cleanUser === AUTH_CREDENTIALS.KULLANICI_ADI.toLowerCase() &&
-        cleanPass === AUTH_CREDENTIALS.SIFRE
+        cleanUser === creds.KULLANICI_ADI.toLowerCase() &&
+        cleanPass === creds.SIFRE
       ) {
         triggerHeartConfetti();
         onLoginSuccess();

@@ -3,17 +3,41 @@
 // ==============================================================================
 
 // Giriş Bilgileri (.env dosyasından okunur)
-// ÖNEMLİ: .env dosyasını değiştirdiysen Vite dev server'ı YENİDEN BAŞLAT!
-//         .env değişiklikleri sadece uygulama başlarken okunur.
-const ENV_USER = import.meta.env.VITE_AUTH_USERNAME;
-const ENV_PASS = import.meta.env.VITE_AUTH_PASSWORD;
+// ÖNEMLİ: Değerler her kullanımda import.meta.env üzerinden DINAMIK olarak okunur.
+//         Böylece dev server HMR veya sayfa yenilemede stale değer sorunu olmaz.
+//
+// .env dosyasını değiştirdiysen tarayıcıda F5 ile sayfayı YENİLE (veya sunucuyu yeniden başlat).
 
-export const AUTH_CREDENTIALS = {
-  KULLANICI_ADI: ENV_USER || '',
-  SIFRE: ENV_PASS || '',
-};
+export function getAuthCredentials() {
+  return {
+    KULLANICI_ADI: (import.meta.env.VITE_AUTH_USERNAME || '').trim(),
+    SIFRE: (import.meta.env.VITE_AUTH_PASSWORD || '').trim(),
+  };
+}
 
-export const IS_AUTH_ENV_SET = Boolean(ENV_USER && ENV_PASS);
+export function isAuthEnvSet() {
+  const c = getAuthCredentials();
+  return Boolean(c.KULLANICI_ADI && c.SIFRE);
+}
+
+// Geriye dönük uyumluluk: AUTH_CREDENTIALS nesnesi (çoğu yerde kullanılıyor)
+export const AUTH_CREDENTIALS = new Proxy(
+  {},
+  {
+    get(_target, prop) {
+      const c = getAuthCredentials();
+      return c[prop];
+    },
+    ownKeys() {
+      return ['KULLANICI_ADI', 'SIFRE'];
+    },
+    getOwnPropertyDescriptor() {
+      return { enumerable: true, configurable: true };
+    },
+  }
+);
+
+export const IS_AUTH_ENV_SET = isAuthEnvSet();
 
 // Yerel Depolama Anahtarları (LocalStorage)
 export const STORAGE_KEYS = {

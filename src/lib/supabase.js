@@ -411,11 +411,75 @@ export async function getLikes(photoId) {
   };
 }
 
+const LIKES_TABLE_MISSING_HINT =
+  '. Supabase Panelinde SQL Editor acip "supabase_schema.sql" tum dosyayi veya ' +
+  'yalnizca "supabase/migrations/20261004_add_likes_table.sql" dosyasindaki SQLi calistirin.';
+
+function isRelationMissingError(err) {
+  const m = (err?.message || '').toLowerCase();
+  const code = String(err?.code || '');
+  return (
+    m.includes('could not find the table') ||
+    (m.includes('relation') && m.includes('does not exist')) ||
+    m.includes('schema cache') ||
+    code === '42P01'
+  );
+}
+
+function isUniqueViolation(err) {
+  const m = (err?.message || '').toLowerCase();
+  const code = String(err?.code || '');
+  return (
+    code === '23505' ||
+    m.includes('unique') ||
+    m.includes('duplicate key') ||
+    m.includes('unique_like_per_user_per_photo')
+  );
+}
+
+function isCheckViolation(err) {
+  const code = String(err?.code || '');
+  return code === '23514' || String(err?.message || '').includes('check constraint');
+}
+
+const VALID_SENDERS = new Set(['Yaşar', 'Beyza']);
+
+/**
+ * Son durumu tekrar okur ve beğeni state'ini döner
+ */
+async function refetchLikesState(photoId, sender) {
+  const { data, error } = await supabase
+    .from('likes')
+    .select('sender')
+    .eq('photo_id', photoId);
+
+  if (error) throw error;
+  const likes = data || [];
+  return {
+    total: likes.length,
+    likedByMe: likes.some((l) => l.sender === sender),
+  };
+}
+
 /**
  * Bir fotoğrafı beğen / beğeniyi geri al
+ *
+ * Veritabani Uyumlulugu (public.likes tablosu sutunlari):
+ *  - id         UUID   (DEFAULT gen_random_uuid())  -> kod tarafinda yazmaya gerek yok
+ *  - created_at TIMESTAMPTZ (DEFAULT now())         -> kod tarafinda yazmaya gerek yok
+ *  - photo_id   UUID   (FK -> photos.id)            -> kodda photo_id olarak geciliyor  ✅
+ *  - sender     TEXT   CHECK IN ('Yaşar','Beyza')   -> kodda sender olarak geciliyor    ✅
+ *  - UNIQUE(photo_id, sender)                       -> race condition durumunda handle ediliyor
  */
 export async function toggleLike(photoId, sender) {
   if (!photoId || !sender) return { likedByMe: false, total: 0 };
+
+  if (!VALID_SENDERS.has(sender)) {
+    throw new Error(
+      'Gecerli olmayan gönderen: ' + sender +
+      '. Lütfen üst menüden Yaşar / Beyza seçiminizi doğrulayın.'
+    );
+  }
 
   if (!isSupabaseConfigured) {
     const all = getLocalDemoData(STORAGE_KEYS.DEMO_LIKES, DEFAULT_DEMO_LIKES);
@@ -442,46 +506,80 @@ export async function toggleLike(photoId, sender) {
     };
   }
 
-  // Supabase tarafında önce mevcut beğeniyi kontrol et
-  const { data: existing } = await supabase
-    .from('likes')
-    .select('id')
-    .eq('photo_id', photoId)
-    .eq('sender', sender)
-    .maybeSingle();
-
-  if (existing) {
-    const { error: delError } = await supabase
+  // 1. Mevcut beğeniyi bul
+  let existing = null;
+  try {
+    const res = await supabase
       .from('likes')
-      .delete()
-      .eq('id', existing.id);
+      .select('id')
+      .eq('photo_id', photoId)
+      .eq('sender', sender)
+      .limit(1);
 
-    if (delError) {
-      console.error('Beğeni silme hatası:', delError);
-      throw new Error('Beğeni geri alınamadı: ' + delError.message);
+    if (res.error) throw res.error;
+    existing = (res.data && res.data[0]) || null;
+  } catch (err) {
+    console.error('Beğeni sorgu hatası:', err);
+    if (isRelationMissingError(err)) {
+      throw new Error('public.likes tablosu veritabaninda yok' + LIKES_TABLE_MISSING_HINT);
+    }
+    throw new Error('Beğeni kontrol edilemedi: ' + err.message);
+  }
+
+  // 2. Kayıt varsa sil, yoksa ekle
+  if (existing) {
+    try {
+      const { error: delError } = await supabase
+        .from('likes')
+        .delete()
+        .eq('id', existing.id);
+
+      if (delError) throw delError;
+    } catch (err) {
+      console.error('Beğeni silme hatası:', err);
+      if (isRelationMissingError(err)) {
+        throw new Error('public.likes tablosu veritabaninda yok' + LIKES_TABLE_MISSING_HINT);
+      }
+      throw new Error('Beğeni geri alınamadı: ' + err.message);
     }
   } else {
-    const { error: insError } = await supabase
-      .from('likes')
-      .insert([{ photo_id: photoId, sender }]);
+    try {
+      const { error: insError } = await supabase
+        .from('likes')
+        .insert([{ photo_id: photoId, sender }]);
 
-    if (insError) {
-      console.error('Beğeni ekleme hatası:', insError);
-      throw new Error('Beğeni eklenemedi: ' + insError.message);
+      if (insError) throw insError;
+    } catch (err) {
+      console.error('Beğeni ekleme hatası:', err);
+
+      // RACE CONDITION: UNIQUE(photo_id, sender) ihlali — başka bir istek aynı anda insert etmiş
+      // Bu durumda "zaten beğenilmiş" sayıp yeniden sorgula, kullanıcıya hata atma
+      if (isUniqueViolation(err)) {
+        return await refetchLikesState(photoId, sender);
+      }
+      if (isCheckViolation(err)) {
+        throw new Error(
+          'Gönderen değeri veritabanı CHECK kuralını ihlal ediyor. ' +
+          'Lütfen "Yaşar" veya "Beyza" değerlerinden birini kullandığınızdan emin olun.'
+        );
+      }
+      if (isRelationMissingError(err)) {
+        throw new Error('public.likes tablosu veritabaninda yok' + LIKES_TABLE_MISSING_HINT);
+      }
+      throw new Error('Beğeni eklenemedi: ' + err.message);
     }
   }
 
-  // Son durumu tekrar oku
-  const { data: finalData } = await supabase
-    .from('likes')
-    .select('*')
-    .eq('photo_id', photoId);
-
-  const final = finalData || [];
-  return {
-    likedByMe: final.some((l) => l.sender === sender),
-    total: final.length,
-  };
+  // 3. Son durumu tekrar oku ve dön
+  try {
+    return await refetchLikesState(photoId, sender);
+  } catch (err) {
+    console.error('Beğeni son durum okuma hatası:', err);
+    if (isRelationMissingError(err)) {
+      throw new Error('public.likes tablosu veritabaninda yok' + LIKES_TABLE_MISSING_HINT);
+    }
+    throw new Error('Beğeni sayısı okunamadı: ' + err.message);
+  }
 }
 
 // ==============================================================================
