@@ -135,7 +135,22 @@ await bekle(900);
 kontrol('Kalıcı silme: DELETE /photos', Boolean(bul('DELETE', '/rest/v1/photos')));
 kontrol('Kalıcı silme: dosya depodan silindi', Boolean(bul('DELETE', '/storage/v1/')));
 
+// ------------------------------------------------------------ 5) NOT BEĞENİSİ
+console.log('\n5) NOT BEĞENİSİ (Aşk Notları)');
+tikla(document, 'Aşk Notları Duvarı');
+await bekle(700);
+api.sifirla();
+
+const notKalbi = document.querySelector('button[title="Kalbe dokun"]');
+kontrol('Not kartında kalp düğmesi var', Boolean(notKalbi));
+notKalbi?.click();
+await bekle(800);
+kontrol(
+  'Not beğenisi KAYDEDİLDİ (POST /note_likes)',
+  Boolean(bul('POST', '/rest/v1/note_likes')),
+  'eskiden yalnızca ekranda tutuluyordu'
+);
+
 console.log('\n=== SONUÇ ===');
-console.log(`  ${basarisiz === 0 ? 'TÜM KONTROLLER GEÇTİ ✅' : `${basarisiz} kontrol BAŞARISIZ ❌`}`);
-api.geriAl();
+console.log(`  ${basarisiz === 0 ? 'TÜM KONTROLLER GEÇTİ ✅' : `${basarisiz} kontrol BAŞARISIZ ❌`}`);api.geriAl();
 process.exit(basarisiz === 0 ? 0 : 1);

@@ -1217,3 +1217,99 @@ export async function restoreNote(noteId) {
 
   return true;
 }
+
+// ==============================================================================
+// NOT BEĞENİLERİ
+// ==============================================================================
+// note_likes tablosu 20261006_note_likes.sql ile eklenir. Tablo yoksa bu özellik
+// kendini kapatır ve not kartında kalp hiç gösterilmez. (Önceden kalp yalnızca
+// ekranda tutuluyordu: sayı görünmüyor ve sekme değişince kayboluyordu.)
+
+let noteLikesCapabilityCache = null;
+let noteLikesCheckedAt = 0;
+
+/**
+ * Not beğenileri kullanılabilir mi? (note_likes tablosu var mı)
+ */
+export async function isNoteLikesAvailable() {
+  if (!isSupabaseConfigured) return false;
+
+  if (noteLikesCapabilityCache === true) return true;
+  if (noteLikesCapabilityCache === false && Date.now() - noteLikesCheckedAt < 60 * 1000) {
+    return false;
+  }
+
+  try {
+    const { error } = await supabase.from('note_likes').select('id').limit(1);
+    noteLikesCapabilityCache = !error;
+  } catch (err) {
+    console.warn('Not beğenileri kontrol edilemedi:', err);
+    noteLikesCapabilityCache = false;
+  }
+
+  noteLikesCheckedAt = Date.now();
+  return noteLikesCapabilityCache;
+}
+
+/**
+ * Tüm not beğenilerini getirir (note_id + sender).
+ * Tek sorguda hepsi alınır; sayılar tarayıcıda hesaplanır.
+ */
+export async function getAllNoteLikes() {
+  if (!isSupabaseConfigured || !(await isNoteLikesAvailable())) return [];
+
+  const { data, error } = await supabase.from('note_likes').select('note_id, sender');
+
+  if (error) {
+    console.warn('Not beğenileri okunamadı:', error.message);
+    return [];
+  }
+
+  return data || [];
+}
+
+/**
+ * Bir nota kalp bırakır / bırakılan kalbi geri alır.
+ * @returns {Promise<{likedByMe: boolean, total: number}>}
+ */
+export async function toggleNoteLike(noteId, sender) {
+  if (!noteId || !sender) return { likedByMe: false, total: 0 };
+
+  if (!VALID_SENDERS.has(sender)) {
+    throw new Error('Geçerli olmayan gönderen: ' + sender);
+  }
+
+  if (!isSupabaseConfigured) {
+    return { likedByMe: true, total: 1 };
+  }
+
+  const mevcut = await supabase
+    .from('note_likes')
+    .select('id')
+    .eq('note_id', noteId)
+    .eq('sender', sender)
+    .limit(1);
+
+  if (mevcut.error) {
+    throw new Error('Beğeni kontrol edilemedi: ' + mevcut.error.message);
+  }
+
+  if (mevcut.data && mevcut.data.length > 0) {
+    const { error } = await supabase.from('note_likes').delete().eq('id', mevcut.data[0].id);
+    if (error) throw new Error('Beğeni geri alınamadı: ' + error.message);
+  } else {
+    const { error } = await supabase.from('note_likes').insert([{ note_id: noteId, sender }]);
+    // 23505 = zaten beğenilmiş (iki cihaz aynı anda) → sorun değil
+    if (error && error.code !== '23505') {
+      throw new Error('Beğeni kaydedilemedi: ' + error.message);
+    }
+  }
+
+  const tumu = await getAllNoteLikes();
+  const buNot = tumu.filter((satir) => satir.note_id === noteId);
+
+  return {
+    likedByMe: buNot.some((satir) => satir.sender === sender),
+    total: buNot.length,
+  };
+}

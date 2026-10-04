@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { formatTurkishDate, formatRelativeTime } from '../../lib/utils';
 import { Heart, Trash2, Calendar } from 'lucide-react';
 
-export default function NoteCard({ note, onDeleteRequest }) {
-  const [liked, setLiked] = useState(false);
+export default function NoteCard({
+  note,
+  onDeleteRequest,
+  likeCount = 0,
+  likedByMe = false,
+  showLikes = false,
+  isLikeBusy = false,
+  onToggleLike,
+}) {
   const isYasar = note.sender === 'Yaşar';
 
   return (
@@ -70,18 +77,26 @@ export default function NoteCard({ note, onDeleteRequest }) {
           {formatTurkishDate(note.created_at)}
         </span>
 
-        <button
-          type="button"
-          onClick={() => setLiked(!liked)}
-          className={`p-1.5 rounded-full transition-transform active:scale-125 cursor-pointer ${
-            liked
-              ? 'text-rose-600 bg-rose-100/80 scale-110'
-              : 'text-rose-300 hover:text-rose-500 hover:bg-rose-50'
-          }`}
-          title={liked ? 'Beğenildi' : 'Kalp Bırak'}
-        >
-          <Heart className={`w-4 h-4 ${liked ? 'fill-rose-500' : ''}`} />
-        </button>
+        {showLikes && (
+          <button
+            type="button"
+            onClick={() => onToggleLike?.(note)}
+            disabled={isLikeBusy}
+            className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
+              likedByMe
+                ? 'bg-rose-100 text-rose-600'
+                : 'text-rose-400 hover:text-rose-600 hover:bg-rose-50'
+            } ${isLikeBusy ? 'opacity-70 cursor-wait' : ''}`}
+            title={likedByMe ? 'Beğeniyi geri al' : 'Kalbe dokun'}
+          >
+            <Heart
+              className={`w-4 h-4 transition-transform ${
+                likedByMe ? 'fill-rose-500 text-rose-500 scale-110' : ''
+              }`}
+            />
+            <span>{likeCount}</span>
+          </button>
+        )}
       </div>
     </div>
   );

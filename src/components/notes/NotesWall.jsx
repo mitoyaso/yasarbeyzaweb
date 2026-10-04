@@ -1,7 +1,13 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import NoteCard from './NoteCard';
 import ConfirmModal from '../ConfirmModal';
-import { addNote, deleteNote } from '../../lib/supabase';
+import {
+  addNote,
+  deleteNote,
+  getAllNoteLikes,
+  isNoteLikesAvailable,
+  toggleNoteLike,
+} from '../../lib/supabase';
 import { triggerHeartConfetti } from '../../lib/utils';
 import { MessageSquareHeart, Send, Filter, RefreshCw } from 'lucide-react';
 
@@ -19,6 +25,83 @@ export default function NotesWall({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [deletingNote, setDeletingNote] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Not beğenileri (note_likes tablosu)
+  const [noteLikes, setNoteLikes] = useState([]);
+  const [likesAvailable, setLikesAvailable] = useState(false);
+  const [busyNoteId, setBusyNoteId] = useState(null);
+
+  // Kalp yalnızca note_likes tablosu varsa gösterilir; yoksa hiç görünmez
+  // (tıklanınca kaybolan "sahte kalp" davranışı olmasın).
+  const loadNoteLikes = useCallback(async () => {
+    try {
+      const mevcut = await isNoteLikesAvailable();
+      if (!mevcut) {
+        setLikesAvailable(false);
+        return;
+      }
+      setLikesAvailable(true);
+      setNoteLikes(await getAllNoteLikes());
+    } catch (err) {
+      console.warn('Not beğenileri yüklenemedi:', err);
+    }
+  }, []);
+
+  useEffect(() => {
+    let iptal = false;
+
+    isNoteLikesAvailable()
+      .then(async (mevcut) => {
+        if (iptal) return;
+        setLikesAvailable(mevcut);
+        if (!mevcut) return;
+
+        const veri = await getAllNoteLikes();
+        if (!iptal) setNoteLikes(veri);
+      })
+      .catch((err) => console.warn('Not beğenileri yüklenemedi:', err));
+
+    return () => {
+      iptal = true;
+    };
+  }, []);
+
+  const likeInfoFor = (noteId) => {
+    const buNot = noteLikes.filter((satir) => satir.note_id === noteId);
+    return {
+      total: buNot.length,
+      likedByMe: buNot.some((satir) => satir.sender === activeSender),
+    };
+  };
+
+  const handleToggleLike = async (note) => {
+    const onceki = noteLikes;
+    const benim = onceki.some(
+      (satir) => satir.note_id === note.id && satir.sender === activeSender
+    );
+
+    // Anında tepki ver (iyimser güncelleme), sonra sunucudan tazele
+    setBusyNoteId(note.id);
+    setNoteLikes(
+      benim
+        ? onceki.filter(
+            (satir) => !(satir.note_id === note.id && satir.sender === activeSender)
+          )
+        : [...onceki, { note_id: note.id, sender: activeSender }]
+    );
+
+    try {
+      await toggleNoteLike(note.id, activeSender);
+      showToast(benim ? 'Beğeni geri alındı' : 'Kalp bırakıldı 💖', 'success');
+      await loadNoteLikes();
+    } catch (err) {
+      console.error(err);
+      setNoteLikes(onceki);
+      showToast(err.message || 'Beğeni kaydedilemedi.', 'error');
+    } finally {
+      setBusyNoteId(null);
+    }
+  };
 
   // Filtreleme
   const filteredNotes = notes.filter((n) => {
@@ -222,13 +305,21 @@ export default function NotesWall({
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredNotes.map((note) => (
-            <NoteCard
-              key={note.id}
-              note={note}
-              onDeleteRequest={(n) => setDeletingNote(n)}
-            />
-          ))}
+          {filteredNotes.map((note) => {
+            const bilgi = likeInfoFor(note.id);
+            return (
+              <NoteCard
+                key={note.id}
+                note={note}
+                onDeleteRequest={(n) => setDeletingNote(n)}
+                showLikes={likesAvailable}
+                likeCount={bilgi.total}
+                likedByMe={bilgi.likedByMe}
+                isLikeBusy={busyNoteId === note.id}
+                onToggleLike={handleToggleLike}
+              />
+            );
+          })}
         </div>
       )}
 
