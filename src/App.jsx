@@ -292,6 +292,35 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated, session]);
 
+  // ---------------------------------------------------------------------------
+  // YEDEK TAZELEME: Sekmeye geri dönüldüğünde verileri yenile
+  // (Canlı akış herhangi bir nedenle çalışmasa bile ekran taze kalır.
+  //  Zamanlayıcı yok; yalnızca kullanıcı sekmeye döndüğünde ve en fazla
+  //  30 saniyede bir istek yapılır.)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    if (!isAuthenticated || !isSupabaseConfigured) return undefined;
+
+    let sonTazeleme = Date.now();
+
+    const handleVisibility = () => {
+      if (document.visibilityState !== 'visible') return;
+      if (Date.now() - sonTazeleme < 30000) return;
+      sonTazeleme = Date.now();
+
+      getPhotos()
+        .then((data) => setPhotos(data))
+        .catch((err) => console.warn('Sekmeye dönüşte fotoğraflar tazelenemedi:', err));
+
+      getNotes()
+        .then((data) => setNotes(data))
+        .catch((err) => console.warn('Sekmeye dönüşte notlar tazelenemedi:', err));
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [isAuthenticated]);
+
   // Oturum henüz geri yüklenmediyse kısa bir bekleme ekranı göster
   if (!isAuthReady) {
     return (
