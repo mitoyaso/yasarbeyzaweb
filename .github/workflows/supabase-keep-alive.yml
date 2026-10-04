@@ -1,0 +1,74 @@
+# ==============================================================================
+# SUPABASE "UYANIK TUT" GÖREVİ
+# ==============================================================================
+# NEDEN: Ücretsiz Supabase projeleri 7 gün boyunca düşük veritabanı aktivitesi
+# görürse otomatik olarak DURAKLATILIR. Duraklayan bir projede site hata verir.
+# İki kişilik, ara sıra kullanılan bir site bu tanıma girebilir.
+#
+# NE YAPAR: Her gün Supabase'in kimlik doğrulama servisine birkaç istek gönderir.
+# Bu istekler veritabanına bakar (kullanıcı araması yapar), böylece proje
+# "aktif" sayılır ve duraklatılmaz.
+#
+# GÜVENLİK NOTU: Burada kullanılan "anon" anahtarı zaten sitenin herkese açık
+# JavaScript paketinin içinde bulunur — gizli bir anahtar DEĞİLDİR. Veriyi koruyan
+# şey anahtar değil, veritabanındaki RLS politikalarıdır (yalnızca iki hesap).
+# Gönderilen giriş denemesi kasıtlı olarak geçersizdir; hiçbir şeye erişmez.
+#
+# NOT: GitHub, 60 gün boyunca hiç commit/push yapılmayan depoların zamanlanmış
+# görevlerini duraklatabilir. Böyle bir durumda Actions sekmesinden tek tıkla
+# yeniden etkinleştirilebilir.
+# ==============================================================================
+
+name: Supabase uyanık tut
+
+on:
+  schedule:
+    # Her gün 09:17 UTC (Türkiye saatiyle 12:17)
+    - cron: '17 9 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ping:
+    name: Veritabanına dokun
+    runs-on: ubuntu-latest
+
+    env:
+      SUPABASE_URL: https://vjdovvnehxiardhumezz.supabase.co
+      SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZqZG92dm5laHhpYXJkaHVtZXp6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTEwNDM0MzAsImV4cCI6MjEwNjYxOTQzMH0.icuu1MN7oSZfJiNdW35CEoiwZ5KNRHJMbWrscFhavN8
+
+    steps:
+      - name: Kimlik doğrulama servisine istek gönder
+        run: |
+          echo "Supabase projesine aktivite gönderiliyor..."
+
+          basarili=0
+          for deneme in 1 2 3; do
+            kod=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 \
+              -X POST "$SUPABASE_URL/auth/v1/token?grant_type=password" \
+              -H "apikey: $SUPABASE_ANON_KEY" \
+              -H "Content-Type: application/json" \
+              -d '{"email":"keepalive@sevgunlugu.com","password":"gecersiz-keepalive-istegi"}')
+
+            echo "  deneme $deneme -> HTTP $kod"
+
+            # 400 = beklenen sonuç (kullanıcı yok / şifre yanlış).
+            # Önemli olan isteğin veritabanına ulaşması ve projenin aktif sayılması.
+            if [ "$kod" = "400" ] || [ "$kod" = "200" ]; then
+              basarili=$((basarili + 1))
+            fi
+
+            sleep 5
+          done
+
+          echo ""
+          echo "Veritabanına ulaşan istek sayısı: $basarili / 3"
+
+          if [ "$basarili" -eq 0 ]; then
+            echo "::warning::Supabase'e ulaşılamadı. Proje duraklatılmış olabilir!"
+            exit 1
+          fi
+
+          echo "Proje aktif tutuldu. 💖"
