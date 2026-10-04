@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { formatTurkishDate, formatRelativeTime } from '../../lib/utils';
+import { getLikes, toggleLike } from '../../lib/supabase';
 import CommentSection from './CommentSection';
 import { Heart, MessageCircle, MoreVertical, Edit2, Trash2, Maximize2, Calendar } from 'lucide-react';
 
 export default function PhotoCard({
   photo,
   activeSender,
+  showToast,
   onOpenLightbox,
   onEditCaption,
   onDeleteRequest,
@@ -13,23 +15,68 @@ export default function PhotoCard({
   const [showComments, setShowComments] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [isLiked, setIsLiked] = useState(false);
-  const [likeCount, setLikeCount] = useState(1);
+  const [likeCount, setLikeCount] = useState(0);
+  const [isLikeLoading, setIsLikeLoading] = useState(false);
+  const [isLoadingLikes, setIsLoadingLikes] = useState(true);
 
   const isYasar = photo.uploaded_by === 'Yaşar';
 
-  const handleLike = () => {
-    if (isLiked) {
-      setIsLiked(false);
-      setLikeCount((prev) => Math.max(0, prev - 1));
-    } else {
-      setIsLiked(true);
-      setLikeCount((prev) => prev + 1);
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      setIsLoadingLikes(true);
+      try {
+        const data = await getLikes(photo.id);
+        if (mounted) {
+          setIsLiked(data.likedByMe);
+          setLikeCount(data.total);
+        }
+      } catch (err) {
+        console.error('Beğeni yükleme hatası:', err);
+      } finally {
+        if (mounted) setIsLoadingLikes(false);
+      }
+    }
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, [photo.id]);
+
+  const handleLike = async () => {
+    if (isLikeLoading) return;
+    setIsLikeLoading(true);
+
+    const prevLiked = isLiked;
+    const prevCount = likeCount;
+
+    setIsLiked(!prevLiked);
+    setLikeCount((prev) => (!prevLiked ? prev + 1 : Math.max(0, prev - 1)));
+
+    try {
+      const result = await toggleLike(photo.id, activeSender);
+      setIsLiked(result.likedByMe);
+      setLikeCount(result.total);
+      if (showToast) {
+        showToast(
+          result.likedByMe ? 'Fotoğrafı beğendin! 💖' : 'Beğeni geri alındı',
+          'info'
+        );
+      }
+    } catch (err) {
+      setIsLiked(prevLiked);
+      setLikeCount(prevCount);
+      console.error('Beğeni hatası:', err);
+      if (showToast) {
+        showToast(err.message || 'Beğeni işlemi başarısız oldu, tekrar deneyin.', 'error');
+      }
+    } finally {
+      setIsLikeLoading(false);
     }
   };
 
   return (
     <div className="glass-card rounded-3xl overflow-hidden border border-rose-200/70 shadow-lg glass-card-hover flex flex-col">
-      {/* Üst Bilgi Başlığı */}
       <div className="p-3.5 sm:p-4 flex items-center justify-between border-b border-rose-100/60 bg-white/40">
         <div className="flex items-center gap-2.5">
           <div
@@ -60,7 +107,6 @@ export default function PhotoCard({
           </div>
         </div>
 
-        {/* Menü Açılır Kutusu (Düzenle / Sil) */}
         <div className="relative">
           <button
             type="button"
@@ -106,7 +152,6 @@ export default function PhotoCard({
         </div>
       </div>
 
-      {/* Fotoğraf Görseli */}
       <div
         className="relative group cursor-pointer overflow-hidden bg-rose-950/5 aspect-4/3 sm:aspect-square"
         onClick={() => onOpenLightbox(photo)}
@@ -118,7 +163,6 @@ export default function PhotoCard({
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
-        {/* Büyütme İkonu */}
         <div className="absolute inset-0 bg-rose-950/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
           <span className="p-3 rounded-full bg-white/90 text-rose-700 shadow-lg backdrop-blur-sm transform scale-90 group-hover:scale-100 transition-transform">
             <Maximize2 className="w-5 h-5" />
@@ -126,7 +170,6 @@ export default function PhotoCard({
         </div>
       </div>
 
-      {/* Alt İçerik: Açıklama ve Butonlar */}
       <div className="p-4 flex-1 flex flex-col justify-between">
         {photo.caption && (
           <p className="text-xs sm:text-sm text-rose-900 font-medium leading-relaxed mb-3 font-sans">
@@ -135,24 +178,25 @@ export default function PhotoCard({
         )}
 
         <div>
-          {/* Beğen & Yorum Butonları */}
           <div className="flex items-center justify-between pt-2 border-t border-rose-100/70">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={handleLike}
+                disabled={isLoadingLikes || isLikeLoading}
                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs font-bold transition-all cursor-pointer ${
                   isLiked
                     ? 'bg-rose-100 text-rose-600'
                     : 'text-rose-400 hover:text-rose-600 hover:bg-rose-50'
-                }`}
+                } ${(isLoadingLikes || isLikeLoading) ? 'opacity-70 cursor-wait' : ''}`}
+                title={isLiked ? 'Beğeniyi geri al' : 'Bu fotoğrafı beğen'}
               >
                 <Heart
                   className={`w-4 h-4 transition-transform ${
                     isLiked ? 'fill-rose-500 text-rose-500 scale-110' : ''
-                  }`}
+                  } ${isLikeLoading ? 'animate-pulse' : ''}`}
                 />
-                <span>{likeCount}</span>
+                <span>{isLoadingLikes ? '...' : likeCount}</span>
               </button>
 
               <button
@@ -175,11 +219,11 @@ export default function PhotoCard({
             </span>
           </div>
 
-          {/* Açılır Kapanır Yorum Alanı */}
           {showComments && (
             <CommentSection
               photoId={photo.id}
               activeSender={activeSender}
+              showToast={showToast}
             />
           )}
         </div>

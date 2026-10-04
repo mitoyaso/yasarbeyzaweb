@@ -34,6 +34,16 @@ CREATE TABLE IF NOT EXISTS public.comments (
     comment_text TEXT NOT NULL
 );
 
+-- 4. BEĞENİLER TABLOSU (likes)
+-- Fotoğraflara verilen kalp / beğeni tepkileri (her kullanıcı başına 1 beğeni)
+CREATE TABLE IF NOT EXISTS public.likes (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+    photo_id UUID NOT NULL REFERENCES public.photos(id) ON DELETE CASCADE,
+    sender TEXT NOT NULL CHECK (sender IN ('Yaşar', 'Beyza')),
+    CONSTRAINT unique_like_per_user_per_photo UNIQUE (photo_id, sender)
+);
+
 -- ==============================================================================
 -- ROW LEVEL SECURITY (RLS) VE ERİŞİM İZİNLERİ
 -- ==============================================================================
@@ -79,9 +89,21 @@ ON public.comments FOR INSERT WITH CHECK (true);
 CREATE POLICY "Herkes yorumları silebilir" 
 ON public.comments FOR DELETE USING (true);
 
+-- Likes tablosu izinleri
+ALTER TABLE public.likes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Herkes beğenileri görüntüleyebilir" 
+ON public.likes FOR SELECT USING (true);
+
+CREATE POLICY "Herkes beğeni ekleyebilir" 
+ON public.likes FOR INSERT WITH CHECK (true);
+
+CREATE POLICY "Herkes beğeni silebilir" 
+ON public.likes FOR DELETE USING (true);
+
 
 -- ==============================================================================
--- 4. STORAGE (DEPOLAMA BUCKET'I) KURULUMU: 'couples-photos'
+-- 5. STORAGE (DEPOLAMA BUCKET'I) KURULUMU: 'couples-photos'
 -- ==============================================================================
 -- Storage bucket'ı oluştur (Eğer daha önce oluşturulmadıysa)
 INSERT INTO storage.buckets (id, name, public)
@@ -109,3 +131,5 @@ USING (bucket_id = 'couples-photos');
 CREATE INDEX IF NOT EXISTS idx_notes_created_at ON public.notes(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_photos_created_at ON public.photos(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_comments_photo_id ON public.comments(photo_id);
+CREATE INDEX IF NOT EXISTS idx_likes_photo_id ON public.likes(photo_id);
+CREATE INDEX IF NOT EXISTS idx_likes_photo_sender ON public.likes(photo_id, sender);

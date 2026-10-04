@@ -81,6 +81,12 @@ const DEFAULT_DEMO_COMMENTS = [
   },
 ];
 
+const DEFAULT_DEMO_LIKES = [
+  { id: 'like-1', photo_id: 'demo-1', sender: 'Beyza', created_at: new Date(Date.now() - 3600 * 1000 * 30).toISOString() },
+  { id: 'like-2', photo_id: 'demo-1', sender: 'Yaşar', created_at: new Date(Date.now() - 3600 * 1000 * 28).toISOString() },
+  { id: 'like-3', photo_id: 'demo-2', sender: 'Yaşar', created_at: new Date(Date.now() - 3600 * 1000 * 20).toISOString() },
+];
+
 function getLocalDemoData(key, defaultData) {
   try {
     const raw = localStorage.getItem(key);
@@ -363,6 +369,119 @@ export async function deleteComment(commentId) {
   }
 
   return true;
+}
+
+// ==============================================================================
+// BEĞENİ İŞLEMLERİ (likes)
+// ==============================================================================
+
+/**
+ * Bir fotoğrafın beğeni bilgilerini getir (toplam sayı + aktif kullanıcı beğenmiş mi)
+ */
+export async function getLikes(photoId) {
+  if (!photoId) return { likes: [], likedByMe: false, total: 0 };
+
+  const sender = localStorage.getItem(STORAGE_KEYS.ACTIVE_SENDER) || 'Yaşar';
+
+  if (!isSupabaseConfigured) {
+    const all = getLocalDemoData(STORAGE_KEYS.DEMO_LIKES, DEFAULT_DEMO_LIKES);
+    const likes = all.filter((l) => l.photo_id === photoId);
+    return {
+      likes,
+      likedByMe: likes.some((l) => l.sender === sender),
+      total: likes.length,
+    };
+  }
+
+  const { data, error } = await supabase
+    .from('likes')
+    .select('*')
+    .eq('photo_id', photoId);
+
+  if (error) {
+    console.error('Beğeniler getirilirken hata:', error);
+    return { likes: [], likedByMe: false, total: 0 };
+  }
+
+  const likes = data || [];
+  return {
+    likes,
+    likedByMe: likes.some((l) => l.sender === sender),
+    total: likes.length,
+  };
+}
+
+/**
+ * Bir fotoğrafı beğen / beğeniyi geri al
+ */
+export async function toggleLike(photoId, sender) {
+  if (!photoId || !sender) return { likedByMe: false, total: 0 };
+
+  if (!isSupabaseConfigured) {
+    const all = getLocalDemoData(STORAGE_KEYS.DEMO_LIKES, DEFAULT_DEMO_LIKES);
+    const existing = all.find((l) => l.photo_id === photoId && l.sender === sender);
+
+    let updated;
+    if (existing) {
+      updated = all.filter((l) => !(l.photo_id === photoId && l.sender === sender));
+    } else {
+      const newLike = {
+        id: 'demo-like-' + Date.now(),
+        photo_id: photoId,
+        sender,
+        created_at: new Date().toISOString(),
+      };
+      updated = [...all, newLike];
+    }
+    setLocalDemoData(STORAGE_KEYS.DEMO_LIKES, updated);
+
+    const photoLikes = updated.filter((l) => l.photo_id === photoId);
+    return {
+      likedByMe: photoLikes.some((l) => l.sender === sender),
+      total: photoLikes.length,
+    };
+  }
+
+  // Supabase tarafında önce mevcut beğeniyi kontrol et
+  const { data: existing } = await supabase
+    .from('likes')
+    .select('id')
+    .eq('photo_id', photoId)
+    .eq('sender', sender)
+    .maybeSingle();
+
+  if (existing) {
+    const { error: delError } = await supabase
+      .from('likes')
+      .delete()
+      .eq('id', existing.id);
+
+    if (delError) {
+      console.error('Beğeni silme hatası:', delError);
+      throw new Error('Beğeni geri alınamadı: ' + delError.message);
+    }
+  } else {
+    const { error: insError } = await supabase
+      .from('likes')
+      .insert([{ photo_id: photoId, sender }]);
+
+    if (insError) {
+      console.error('Beğeni ekleme hatası:', insError);
+      throw new Error('Beğeni eklenemedi: ' + insError.message);
+    }
+  }
+
+  // Son durumu tekrar oku
+  const { data: finalData } = await supabase
+    .from('likes')
+    .select('*')
+    .eq('photo_id', photoId);
+
+  const final = finalData || [];
+  return {
+    likedByMe: final.some((l) => l.sender === sender),
+    total: final.length,
+  };
 }
 
 // ==============================================================================

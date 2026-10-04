@@ -189,6 +189,7 @@ export default function PhotoGallery({
               key={photo.id}
               photo={photo}
               activeSender={activeSender}
+              showToast={showToast}
               onOpenLightbox={(p) => setActiveLightboxPhoto(p)}
               onEditCaption={(p) => setEditingPhoto(p)}
               onDeleteRequest={(p) => setDeletingPhoto(p)}

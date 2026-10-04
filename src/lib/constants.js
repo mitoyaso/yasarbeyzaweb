@@ -22,6 +22,7 @@ export const STORAGE_KEYS = {
   DEMO_PHOTOS: 'yasar_beyza_demo_photos_v1',
   DEMO_NOTES: 'yasar_beyza_demo_notes_v1',
   DEMO_COMMENTS: 'yasar_beyza_demo_comments_v1',
+  DEMO_LIKES: 'yasar_beyza_demo_likes_v1',
 };
 
 // Gönderen Kişiler

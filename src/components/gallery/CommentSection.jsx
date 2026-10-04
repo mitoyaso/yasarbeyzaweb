@@ -1,22 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import { getComments, addComment, deleteComment } from '../../lib/supabase';
 import { formatRelativeTime } from '../../lib/utils';
-import { MessageCircle, Send, Trash2 } from 'lucide-react';
+import { MessageCircle, Send, Trash2, AlertCircle, CheckCircle2 } from 'lucide-react';
 
-export default function CommentSection({ photoId, activeSender }) {
+export default function CommentSection({ photoId, activeSender, showToast }) {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
 
   useEffect(() => {
     let isMounted = true;
     async function loadComments() {
+      setErrorMsg('');
       try {
         const data = await getComments(photoId);
         if (isMounted) setComments(data);
       } catch (err) {
         console.error('Yorum yükleme hatası:', err);
+        if (isMounted) setErrorMsg('Yorumlar yüklenemedi. Sayfayı yenilemeyi deneyin.');
       } finally {
         if (isMounted) setIsLoading(false);
       }
@@ -30,8 +34,15 @@ export default function CommentSection({ photoId, activeSender }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!commentText.trim()) return;
+    if (!activeSender) {
+      setErrorMsg('Gönderen seçilmemiş. Lütfen üst menüden Yaşar / Beyza seçimini yapın.');
+      return;
+    }
 
     setIsSubmitting(true);
+    setErrorMsg('');
+    setSuccessMsg('');
+
     try {
       const newComment = await addComment({
         photoId,
@@ -40,8 +51,17 @@ export default function CommentSection({ photoId, activeSender }) {
       });
       setComments((prev) => [...prev, newComment]);
       setCommentText('');
+      setSuccessMsg('Yorumun başarıyla gönderildi! 💌');
+      if (showToast) {
+        showToast('Yorumun eklendi, çok tatlı! 💖', 'success');
+      }
+      setTimeout(() => setSuccessMsg(''), 3000);
     } catch (err) {
       console.error('Yorum ekleme hatası:', err);
+      setErrorMsg(err.message || 'Yorum gönderilemedi, tekrar deneyin sevgilim.');
+      if (showToast) {
+        showToast(err.message || 'Yorum gönderilemedi!', 'error');
+      }
     } finally {
       setIsSubmitting(false);
     }
@@ -51,8 +71,15 @@ export default function CommentSection({ photoId, activeSender }) {
     try {
       await deleteComment(commentId);
       setComments((prev) => prev.filter((c) => c.id !== commentId));
+      if (showToast) {
+        showToast('Yorum silindi', 'info');
+      }
     } catch (err) {
       console.error('Yorum silinemedi:', err);
+      setErrorMsg(err.message || 'Yorum silinemedi.');
+      if (showToast) {
+        showToast(err.message || 'Yorum silinemedi!', 'error');
+      }
     }
   };
 
@@ -69,7 +96,29 @@ export default function CommentSection({ photoId, activeSender }) {
         </h4>
       </div>
 
-      {/* Yorum Listesi */}
+      {errorMsg && (
+        <div className="mb-3 p-2.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium flex items-start gap-2">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-500" />
+          <div className="flex-1">
+            <p>{errorMsg}</p>
+            <button
+              type="button"
+              onClick={() => setErrorMsg('')}
+              className="mt-1 text-red-600 underline underline-offset-2 font-bold hover:text-red-800 cursor-pointer"
+            >
+              Hata mesajını kapat
+            </button>
+          </div>
+        </div>
+      )}
+
+      {successMsg && (
+        <div className="mb-3 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-medium flex items-center gap-2">
+          <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+          <p>{successMsg}</p>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="py-4 text-center text-xs text-rose-400">
           Yorumlar yükleniyor...
@@ -84,6 +133,7 @@ export default function CommentSection({ photoId, activeSender }) {
         <div className="space-y-2 mb-3 max-h-56 overflow-y-auto pr-1">
           {comments.map((comment) => {
             const isYasar = comment.sender === 'Yaşar';
+            const canDelete = comment.sender === activeSender;
             return (
               <div
                 key={comment.id}
@@ -109,29 +159,29 @@ export default function CommentSection({ photoId, activeSender }) {
                   </p>
                 </div>
 
-                {/* Yorum Silme */}
-                <button
-                  type="button"
-                  onClick={() => handleDelete(comment.id)}
-                  title="Yorumu Sil"
-                  className="opacity-0 group-hover:opacity-100 text-rose-300 hover:text-rose-600 p-1 rounded-md transition"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+                {canDelete && (
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(comment.id)}
+                    title="Kendi yorumunu sil"
+                    className="opacity-0 group-hover:opacity-100 text-rose-300 hover:text-rose-600 p-1 rounded-md transition cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             );
           })}
         </div>
       )}
 
-      {/* Hızlı Romantik Emojiler */}
       <div className="flex items-center gap-1.5 mb-2 overflow-x-auto pb-1 text-sm">
         {['💖', '😍', '💍', '🌸', '✨', '☕', '🌹', '🥰'].map((emoji) => (
           <button
             key={emoji}
             type="button"
             onClick={() => handleQuickEmoji(emoji)}
-            className="hover:scale-125 transition-transform p-0.5"
+            className="hover:scale-125 transition-transform p-0.5 cursor-pointer"
             title="Emoji ekle"
           >
             {emoji}
@@ -139,22 +189,26 @@ export default function CommentSection({ photoId, activeSender }) {
         ))}
       </div>
 
-      {/* Yorum Ekleme Formu */}
       <form onSubmit={handleSubmit} className="flex items-center gap-2">
         <input
           type="text"
           value={commentText}
           onChange={(e) => setCommentText(e.target.value)}
-          placeholder={`Bir yorum yaz (${activeSender})...`}
-          className="flex-1 px-3 py-2 text-xs glass-input rounded-xl text-rose-950 placeholder-rose-300"
+          placeholder={`Bir yorum yaz (${activeSender || 'Gönderen seç'})...`}
+          disabled={isSubmitting}
+          className="flex-1 px-3 py-2 text-xs glass-input rounded-xl text-rose-950 placeholder-rose-300 disabled:opacity-60"
         />
         <button
           type="submit"
-          disabled={!commentText.trim() || isSubmitting}
-          className="p-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white hover:from-rose-600 hover:to-pink-600 disabled:opacity-50 transition cursor-pointer shadow-sm"
+          disabled={!commentText.trim() || isSubmitting || !activeSender}
+          className="p-2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-500 text-white hover:from-rose-600 hover:to-pink-600 disabled:opacity-50 disabled:cursor-not-allowed transition cursor-pointer shadow-sm"
           title="Yorum Gönder"
         >
-          <Send className="w-3.5 h-3.5" />
+          {isSubmitting ? (
+            <span className="inline-block w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+          ) : (
+            <Send className="w-3.5 h-3.5" />
+          )}
         </button>
       </form>
     </div>
