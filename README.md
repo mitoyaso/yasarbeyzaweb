@@ -193,8 +193,14 @@ git push -u origin main
 ## 🧪 Testler ve Bakım
 
 ```bash
-# Mantık testleri (başarım/seri hesabı ve ZIP yedeği) — bağımlılık gerektirmez
+# Mantık testleri (başarım/seri hesabı, ZIP yedeği, quiz puanlama, harita,
+# çöp kutusu süresi, hata mesajları) — 113 test, bağımlılık gerektirmez
 npm test
+
+# Ön-yüz çalışma (boot) testi — ÖNCE "npm run build" gerekir.
+# Derlenmiş uygulamayı sanal tarayıcıda (jsdom) gerçekten çalıştırır ve
+# ekrana çizildiğini doğrular; "beyaz ekran" hatalarını yakalar.
+npm run test:boot
 
 # Kod kalitesi
 npm run lint
