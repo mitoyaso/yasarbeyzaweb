@@ -112,6 +112,38 @@ export function tarayiciKur(html) {
   }
   globalAyarla('WebSocket', SahteWebSocket);
 
+  // jsdom'da visualViewport yok. Klavye davranışını test edebilmek için taklit
+  // eklenir: yüksekliği değiştirip 'resize' olayı tetiklenebilir.
+  if (!window.visualViewport) {
+    const dinleyiciler = new Map();
+    const gorunurAlan = {
+      height: window.innerHeight || 800,
+      width: window.innerWidth || 400,
+      offsetTop: 0,
+      scale: 1,
+      addEventListener(tip, fn) {
+        if (!dinleyiciler.has(tip)) dinleyiciler.set(tip, []);
+        dinleyiciler.get(tip).push(fn);
+      },
+      removeEventListener(tip, fn) {
+        const liste = dinleyiciler.get(tip) || [];
+        const yer = liste.indexOf(fn);
+        if (yer >= 0) liste.splice(yer, 1);
+      },
+      __tetikle(tip) {
+        for (const fn of dinleyiciler.get(tip) || []) fn();
+      },
+      /** Testten klavye simülasyonu */
+      __klavye(yukseklik, kaydirma = 0) {
+        gorunurAlan.height = yukseklik;
+        gorunurAlan.offsetTop = kaydirma;
+        gorunurAlan.__tetikle('resize');
+      },
+    };
+    window.visualViewport = gorunurAlan;
+    globalAyarla('visualViewport', gorunurAlan);
+  }
+
   const hatalar = [];
   window.addEventListener('error', (olay) => hatalar.push(String(olay.message)));
   process.on('unhandledRejection', (sebep) => hatalar.push('Yakalanmayan söz hatası: ' + sebep));

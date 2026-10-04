@@ -16,6 +16,7 @@ const ONERILER = [
  */
 export default function ErosChat({ photos = [], notes = [], yazan, showToast, onClose }) {
   const dialogRef = useModalA11y({ onClose });
+  const panelRef = useRef(null);
   const listeRef = useRef(null);
   const girdiRef = useRef(null);
 
@@ -24,6 +25,40 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
   const [bekliyor, setBekliyor] = useState(false);
   const [akanMetin, setAkanMetin] = useState('');
   const [hata, setHata] = useState('');
+
+  // ---------------------------------------------------------------------------
+  // TELEFON KLAVYESİ: Klavye açıldığında görünür alanı takip et.
+  // (iOS/Android'de klavye açılınca görünür alan küçülür; sabit yükseklikli
+  //  pencerelerde yazı kutusu klavyenin altında kalır.)
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    const gorunurAlan = typeof window !== 'undefined' ? window.visualViewport : null;
+    if (!gorunurAlan) return undefined;
+
+    const ayarla = () => {
+      const panel = panelRef.current;
+      if (!panel) return;
+
+      // Yalnızca telefonda uygulanır; masaüstünde pencere ölçüsü kullanılır
+      if (window.innerWidth >= 640) {
+        panel.style.height = '';
+        panel.style.transform = '';
+        return;
+      }
+
+      panel.style.height = `${gorunurAlan.height}px`;
+      panel.style.transform = `translateY(${gorunurAlan.offsetTop}px)`;
+    };
+
+    ayarla();
+    gorunurAlan.addEventListener('resize', ayarla);
+    gorunurAlan.addEventListener('scroll', ayarla);
+
+    return () => {
+      gorunurAlan.removeEventListener('resize', ayarla);
+      gorunurAlan.removeEventListener('scroll', ayarla);
+    };
+  }, []);
 
   const kaydirEnAlta = useCallback(() => {
     const liste = listeRef.current;
@@ -93,13 +128,17 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
   const bosMu = mesajlar.length === 0 && !akanMetin;
 
   return (
-    <div className="fixed inset-0 z-[60] bg-rose-950/70 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-6">
+    <div className="fixed inset-0 z-[90] bg-rose-950/70 backdrop-blur-sm flex items-stretch sm:items-center justify-center p-0 sm:p-6 overflow-hidden">
       <div
-        ref={dialogRef}
+        ref={(dugum) => {
+          // Hem erişilebilirlik kancası hem klavye takibi aynı düğümü kullanır
+          panelRef.current = dugum;
+          dialogRef.current = dugum;
+        }}
         role="dialog"
         aria-modal="true"
         aria-label="Eros"
-        className="w-full sm:max-w-2xl h-[92vh] sm:h-[80vh] bg-white rounded-t-3xl sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-rose-200"
+        className="w-full h-full sm:h-auto sm:max-h-[85vh] sm:max-w-2xl bg-white sm:rounded-3xl shadow-2xl flex flex-col overflow-hidden border border-rose-200"
       >
         {/* Başlık */}
         <div className="flex items-center justify-between gap-3 px-4 py-3 bg-gradient-to-r from-rose-500 via-pink-500 to-fuchsia-500 text-white shrink-0">
@@ -138,7 +177,7 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
         </div>
 
         {/* Mesajlar */}
-        <div ref={listeRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3 bg-rose-50/40">
+        <div ref={listeRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 bg-rose-50/40">
           {bosMu && (
             <div className="text-center py-6">
               <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-rose-500/25">
@@ -226,7 +265,7 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
               onChange={(event) => setGirdi(event.target.value)}
               onKeyDown={handleTus}
               placeholder="Eros'a bir şey yaz..."
-              className="flex-1 resize-none max-h-28 px-3.5 py-2.5 rounded-2xl border border-rose-200 text-sm text-rose-950 placeholder-rose-300 focus:outline-none focus:border-rose-400"
+              className="flex-1 resize-none max-h-28 px-3.5 py-2.5 rounded-2xl border border-rose-200 text-base sm:text-sm text-rose-950 placeholder-rose-300 focus:outline-none focus:border-rose-400"
             />
             <button
               type="submit"

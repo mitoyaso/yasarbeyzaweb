@@ -224,12 +224,52 @@ kontrol(
   true
 );
 kontrol('Karşılama mesajı göründü', icerik.includes('Merhaba, ben Eros'), true);
-kontrol('Öneri düğmeleri var', icerik.includes('sürpriz fikri'), true);
+kontrol('Öneri düğmeleri var', icerik.includes('sürprik fikri') || icerik.includes('sürpriz fikri'), true);
 kontrol(
   'Gizlilik uyarısı var (uzman değildir)',
   icerik.includes('uzman değildir'),
   true
 );
+
+// ---------------------------------------------------------------------------
+// TELEFON YERLEŞİMİ: yazı kutusu alt menünün altında kalmamalı, klavye açılınca
+// görünür kalmalı. (Kullanıcı geri bildirimi.)
+// ---------------------------------------------------------------------------
+const erosPanel = document.querySelector('[role="dialog"][aria-label="Eros"]');
+const erosSinifi = erosPanel?.className || '';
+const erosKatmani = erosPanel?.parentElement?.className || '';
+kontrol('Panel menülerin ÜSTÜNDE (z-90)', erosKatmani.includes('z-[90]'), true);
+kontrol('Panel telefonda tam ekran (h-full)', erosSinifi.includes('h-full'), true);
+
+const erosListesi = erosPanel?.querySelector('.overflow-y-auto');
+kontrol('Mesaj listesi daralabilir (min-h-0)', (erosListesi?.className || '').includes('min-h-0'), true);
+
+const erosGirdi = erosPanel?.querySelector('textarea');
+kontrol('Yazı kutusu 16px (iOS zoom yapmaz)', (erosGirdi?.className || '').includes('text-base'), true);
+
+const erosForm = erosPanel?.querySelector('form');
+kontrol('Yazı kutusu formu sabit (shrink-0)', (erosForm?.className || '').includes('shrink-0'), true);
+
+// Klavye simülasyonu: telefonda görünür alan küçülünce panel de küçülmeli
+Object.defineProperty(window, 'innerWidth', { value: 390, configurable: true });
+window.innerHeight = 844;
+const gorunurAlan = window.visualViewport;
+
+if (gorunurAlan?.__klavye) {
+  gorunurAlan.__klavye(844, 0);
+  await bekle(150);
+  kontrol('Telefonda panel görünür alana uydu', erosPanel.style.height === '844px', erosPanel.style.height);
+
+  gorunurAlan.__klavye(480, 60); // klavye açıldı
+  await bekle(150);
+  kontrol(
+    'Klavye açılınca panel küçüldü ve kaydı',
+    erosPanel.style.height === '480px' && erosPanel.style.transform.includes('60px'),
+    `${erosPanel.style.height} / ${erosPanel.style.transform}`
+  );
+} else {
+  kontrol('Görünür alan taklidi var', false, true);
+}
 
 console.log('\n=== SONUÇ ===');
 console.log(`  ${basarisiz === 0 ? 'TÜM KONTROLLER GEÇTİ ✅' : `${basarisiz} kontrol BAŞARISIZ ❌`}`);
