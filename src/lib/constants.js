@@ -3,10 +3,17 @@
 // ==============================================================================
 
 // Giriş Bilgileri (.env dosyasından okunur)
+// ÖNEMLİ: .env dosyasını değiştirdiysen Vite dev server'ı YENİDEN BAŞLAT!
+//         .env değişiklikleri sadece uygulama başlarken okunur.
+const ENV_USER = import.meta.env.VITE_AUTH_USERNAME;
+const ENV_PASS = import.meta.env.VITE_AUTH_PASSWORD;
+
 export const AUTH_CREDENTIALS = {
-  KULLANICI_ADI: import.meta.env.VITE_AUTH_USERNAME || '',
-  SIFRE: import.meta.env.VITE_AUTH_PASSWORD || '',
+  KULLANICI_ADI: ENV_USER || '',
+  SIFRE: ENV_PASS || '',
 };
+
+export const IS_AUTH_ENV_SET = Boolean(ENV_USER && ENV_PASS);
 
 // Yerel Depolama Anahtarları (LocalStorage)
 export const STORAGE_KEYS = {

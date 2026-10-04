@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AUTH_CREDENTIALS } from '../lib/constants';
+import { AUTH_CREDENTIALS, IS_AUTH_ENV_SET } from '../lib/constants';
 import { triggerHeartConfetti } from '../lib/utils';
 import { Heart, Lock, User, Eye, EyeOff } from 'lucide-react';
 
@@ -13,6 +13,12 @@ export default function LoginModal({ onLoginSuccess }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     setError('');
+
+    if (!IS_AUTH_ENV_SET) {
+      setError('⚠️ Ortam değişkenleri okunamadı! Lütfen terminalde çalışan Vite sunucusunu kapatıp tekrar başlat (npm run dev). .env dosyası sadece başlangıçta okunur.');
+      return;
+    }
+
     setIsSubmitting(true);
 
     setTimeout(() => {
