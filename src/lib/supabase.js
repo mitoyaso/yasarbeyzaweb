@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { SUPABASE_BUCKET_NAME, SIGNED_URL_TTL_SECONDS, STORAGE_KEYS } from './constants';
+import { prepareImageForUpload, thumbPathFor } from './image';
 
 // Ortam değişkenlerinden Supabase bilgilerini al
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
@@ -135,12 +136,16 @@ async function withSignedPhotoUrls(photos) {
   );
   if (targets.length === 0) return photos;
 
+  // Ana görseller ve thumbnail'ler tek istekte imzalanır; yanıt aynı sırada gelir.
+  const paths = [];
+  targets.forEach((photo) => {
+    paths.push(photo.storage_path);
+    paths.push(thumbPathFor(photo.storage_path));
+  });
+
   const { data, error } = await supabase.storage
     .from(SUPABASE_BUCKET_NAME)
-    .createSignedUrls(
-      targets.map((photo) => photo.storage_path),
-      SIGNED_URL_TTL_SECONDS
-    );
+    .createSignedUrls(paths, SIGNED_URL_TTL_SECONDS);
 
   if (error || !Array.isArray(data)) {
     console.warn(
@@ -150,18 +155,27 @@ async function withSignedPhotoUrls(photos) {
     return photos;
   }
 
-  // Yanıt, gönderilen yollarla aynı sırada gelir.
   const signedByPath = new Map();
-  targets.forEach((photo, index) => {
+  paths.forEach((path, index) => {
     const signed = toAbsoluteStorageUrl(data[index]?.signedUrl);
-    if (signed) signedByPath.set(photo.storage_path, signed);
+    if (signed) signedByPath.set(path, signed);
   });
 
   if (signedByPath.size === 0) return photos;
 
   return photos.map((photo) => {
-    const signed = signedByPath.get(photo.storage_path);
-    return signed ? { ...photo, url: signed, signed_url: signed } : photo;
+    const fullUrl = signedByPath.get(photo.storage_path);
+    if (!fullUrl) return photo;
+
+    // Thumbnail yoksa (eski fotoğraflar) tam boy görsele düşülür.
+    const thumbUrl = signedByPath.get(thumbPathFor(photo.storage_path));
+
+    return {
+      ...photo,
+      url: fullUrl,
+      signed_url: fullUrl,
+      thumb_url: thumbUrl || fullUrl,
+    };
   });
 }
 
@@ -214,18 +228,24 @@ export async function uploadPhoto({ file, caption, uploadedBy }) {
     });
   }
 
-  // 1. Dosya için benzersiz ve güvenli bir yol oluştur
-  const fileExt = file.name.split('.').pop()?.toLowerCase() || 'jpg';
-  const cleanExt = ['jpg', 'jpeg', 'png', 'webp', 'gif', 'heic'].includes(fileExt) ? fileExt : 'jpg';
-  const fileName = `foto_${Date.now()}_${Math.random().toString(36).substring(2, 9)}.${cleanExt}`;
-  const filePath = `${fileName}`;
+  // 1. Görseli tarayıcıda sıkıştır ve thumbnail üret
+  //    (HEIC dosyaları da burada JPEG'e çevrilir, ayrıca depolama kotası korunur.)
+  const originalBytes = file.size || 0;
+  const { main, thumb } = await prepareImageForUpload(file);
 
-  // 2. Dosyayı Supabase Storage 'couples-photos' bucket'ına yükle
+  // 2. Dosya yolları — thumbnail ayrı bir veritabanı sütunu gerektirmez,
+  //    adlandırma kuralıyla (thumb_ öneki) eşleştirilir.
+  const stamp = `${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+  const filePath = `foto_${stamp}.jpg`;
+  const thumbPath = thumbPathFor(filePath);
+
+  // 3. Ana görseli Supabase Storage 'couple-photos' bucket'ına yükle
   const { error: uploadError } = await supabase.storage
     .from(SUPABASE_BUCKET_NAME)
-    .upload(filePath, file, {
+    .upload(filePath, main.blob, {
       cacheControl: '3600',
       upsert: false,
+      contentType: 'image/jpeg',
     });
 
   if (uploadError) {
@@ -233,14 +253,32 @@ export async function uploadPhoto({ file, caption, uploadedBy }) {
     throw new Error('Fotoğraf depolama alanına yüklenemedi: ' + uploadError.message);
   }
 
-  // 3. Dosyanın herkese açık (Public) URL'ini al
+  // 4. Thumbnail'i yükle — başarısız olursa ana görsel kullanılır, işlem durmaz
+  const { error: thumbError } = await supabase.storage
+    .from(SUPABASE_BUCKET_NAME)
+    .upload(thumbPath, thumb.blob, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: 'image/jpeg',
+    });
+
+  if (thumbError) {
+    console.warn(
+      'Thumbnail yüklenemedi, tam boy görsel kullanılacak:',
+      thumbError.message
+    );
+  }
+
+  // 5. 'url' sütunu geriye dönük uyumluluk için doldurulur.
+  //    Bucket private olduğu için gösterim her zaman storage_path'ten üretilen
+  //    imzalı adresle yapılır; bu değer artık yalnızca bir yedektir.
   const { data: publicUrlData } = supabase.storage
     .from(SUPABASE_BUCKET_NAME)
     .getPublicUrl(filePath);
 
   const publicUrl = publicUrlData.publicUrl;
 
-  // 4. Bilgileri 'photos' tablosuna kaydet
+  // 6. Bilgileri 'photos' tablosuna kaydet
   const { data: photoRecord, error: dbError } = await supabase
     .from('photos')
     .insert([
@@ -263,7 +301,17 @@ export async function uploadPhoto({ file, caption, uploadedBy }) {
 
   // Bucket private olduğu için eklenen fotoğrafın gösterilebilir (imzalı) adresini üret.
   const [photoWithUrl] = await withSignedPhotoUrls([photoRecord]);
-  return photoWithUrl;
+
+  return {
+    ...photoWithUrl,
+    // Arayüzde "ne kadar küçüldü" bilgisini gösterebilmek için (veritabanına yazılmaz)
+    compression: {
+      originalBytes,
+      uploadedBytes: main.blob.size,
+      width: main.width,
+      height: main.height,
+    },
+  };
 }
 
 /**
@@ -279,11 +327,15 @@ export async function deletePhoto(photo) {
     return true;
   }
 
-  // 1. Supabase Storage'dan dosyayı sil (varsa)
+  // 1. Supabase Storage'dan dosyayı (ve varsa thumbnail'ini) sil
   if (photo.storage_path) {
+    const pathsToRemove = [photo.storage_path];
+    const thumbPath = thumbPathFor(photo.storage_path);
+    if (thumbPath) pathsToRemove.push(thumbPath);
+
     const { error: storageError } = await supabase.storage
       .from(SUPABASE_BUCKET_NAME)
-      .remove([photo.storage_path]);
+      .remove(pathsToRemove);
 
     if (storageError) {
       console.warn('Storage silme uyarısı:', storageError);

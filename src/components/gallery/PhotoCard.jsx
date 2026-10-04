@@ -157,9 +157,16 @@ export default function PhotoCard({
         onClick={() => onOpenLightbox(photo)}
       >
         <img
-          src={photo.url}
+          src={photo.thumb_url || photo.url}
           alt={photo.caption || 'Yaşar ve Beyza'}
           loading="lazy"
+          decoding="async"
+          onError={(event) => {
+            // Thumbnail bulunamazsa (eski fotoğraflar) tam boy görsele düş
+            if (photo.url && event.currentTarget.src !== photo.url) {
+              event.currentTarget.src = photo.url;
+            }
+          }}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
 

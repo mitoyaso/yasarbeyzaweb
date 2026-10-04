@@ -8,6 +8,7 @@ import PhotoGallery from './components/gallery/PhotoGallery';
 import NotesWall from './components/notes/NotesWall';
 import Toast from './components/Toast';
 import SupabaseInfoModal from './components/SupabaseInfoModal';
+import InstallPrompt from './components/InstallPrompt';
 import { STORAGE_KEYS, SENDERS } from './lib/constants';
 import { getPhotos, getNotes, isSupabaseConfigured } from './lib/supabase';
 import {
@@ -349,6 +350,9 @@ export default function App() {
         isOpen={showConfigModal}
         onClose={() => setShowConfigModal(false)}
       />
+
+      {/* Telefona kurulum daveti (PWA) */}
+      <InstallPrompt />
     </div>
   );
 }

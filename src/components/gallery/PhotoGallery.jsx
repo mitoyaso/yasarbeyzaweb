@@ -5,6 +5,7 @@ import PhotoLightbox from './PhotoLightbox';
 import EditCaptionModal from './EditCaptionModal';
 import ConfirmModal from '../ConfirmModal';
 import { deletePhoto, updatePhotoCaption } from '../../lib/supabase';
+import { formatBytes } from '../../lib/utils';
 import { Camera, Plus, Filter, RefreshCw } from 'lucide-react';
 
 export default function PhotoGallery({
@@ -122,7 +123,17 @@ export default function PhotoGallery({
           onPhotoUploaded={(newPhoto) => {
             onPhotoUploaded(newPhoto);
             setShowUploadForm(false);
-            showToast('Harika bir anı albümümüze eklendi! 💖', 'success');
+
+            const info = newPhoto?.compression;
+            if (info && info.originalBytes > info.uploadedBytes) {
+              showToast(
+                `Anı albümümüze eklendi! Fotoğraf ${formatBytes(info.originalBytes)} → ` +
+                  `${formatBytes(info.uploadedBytes)} olarak sıkıştırıldı 💖`,
+                'success'
+              );
+            } else {
+              showToast('Harika bir anı albümümüze eklendi! 💖', 'success');
+            }
           }}
           onCancel={() => setShowUploadForm(false)}
         />
