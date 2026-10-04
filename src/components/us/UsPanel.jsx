@@ -57,6 +57,7 @@ export default function UsPanel({
   activeSender = 'Yaşar',
   onPhotoPatched,
   onDataRestored,
+  onSifreDegistir,
 }) {
   const [counts, setCounts] = useState(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
@@ -677,7 +678,7 @@ export default function UsPanel({
       )}
 
       {/* Güvenlik */}
-      <SecurityPanel showToast={showToast} />
+      <SecurityPanel showToast={showToast} onSifreDegistir={onSifreDegistir} />
 
       {/* Bildirimler */}
       <NotificationSettings showToast={showToast} />

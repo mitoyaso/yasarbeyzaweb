@@ -1,5 +1,18 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { erosaSor, gecmisiOku, gecmisiYaz, gecmisiTemizle } from '../../lib/eros';
+import { erosaSor } from '../../lib/eros';
+import {
+  ORTAK_ODA,
+  OZEL_ODA,
+  ODA_BILGISI,
+  odaAnahtari,
+  sohbetYukle,
+  sohbetMesajiEkle,
+  sohbetTemizle,
+  sohbetDinle,
+  yerelOku,
+  yerelYaz,
+  yerelTemizle,
+} from '../../lib/erosChat';
 import { useModalA11y } from '../../lib/useModalA11y';
 import { X, Send, Loader2, Sparkles, Trash2, HeartHandshake } from 'lucide-react';
 
@@ -20,11 +33,16 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
   const listeRef = useRef(null);
   const girdiRef = useRef(null);
 
-  const [mesajlar, setMesajlar] = useState(() => gecmisiOku());
+  const [mesajlar, setMesajlar] = useState([]);
   const [girdi, setGirdi] = useState('');
   const [bekliyor, setBekliyor] = useState(false);
   const [akanMetin, setAkanMetin] = useState('');
   const [hata, setHata] = useState('');
+
+  // Oda: 'ortak' (ikiniz) veya 'ozel' (yalnızca sen)
+  const [oda, setOda] = useState(ORTAK_ODA);
+  const [sohbetHazir, setSohbetHazir] = useState(false);
+  const [yukleniyor, setYukleniyor] = useState(true);
 
   // ---------------------------------------------------------------------------
   // TELEFON KLAVYESİ: Klavye açıldığında görünür alanı takip et.
@@ -60,6 +78,71 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
     };
   }, []);
 
+  // ---------------------------------------------------------------------------
+  // ODA YÜKLEME: ortak oda ikisine, özel oda yalnızca sahibine açıktır (RLS).
+  // eros_messages tablosu yoksa yerel kayda düşülür.
+  // ---------------------------------------------------------------------------
+  useEffect(() => {
+    let iptal = false;
+    const anahtar = odaAnahtari(oda, yazan);
+
+    (async () => {
+      try {
+        const kayitlar = await sohbetYukle(anahtar);
+        if (iptal) return;
+
+        if (kayitlar === null) {
+          setSohbetHazir(false);
+          setMesajlar(yerelOku(oda));
+        } else {
+          setSohbetHazir(true);
+          setMesajlar(
+            kayitlar.map((satir) => ({
+              id: satir.id,
+              rol: satir.rol,
+              kim: satir.rol === 'kullanici' ? satir.gonderen : undefined,
+              icerik: satir.icerik,
+            }))
+          );
+        }
+      } catch (err) {
+        console.warn('Sohbet açılamadı:', err);
+        if (!iptal) setMesajlar(yerelOku(oda));
+      } finally {
+        if (!iptal) setYukleniyor(false);
+      }
+    })();
+
+    return () => {
+      iptal = true;
+    };
+  }, [oda, yazan]);
+
+  // Ortak odada diğer kişinin yazdıklarını canlı göster
+  useEffect(() => {
+    if (!sohbetHazir) return undefined;
+
+    const anahtar = odaAnahtari(oda, yazan);
+
+    return sohbetDinle(anahtar, (yeni) => {
+      if (!yeni?.id) return;
+
+      setMesajlar((oncekiler) => {
+        if (oncekiler.some((mesaj) => mesaj.id === yeni.id)) return oncekiler;
+
+        return [
+          ...oncekiler,
+          {
+            id: yeni.id,
+            rol: yeni.rol,
+            kim: yeni.rol === 'kullanici' ? yeni.gonderen : undefined,
+            icerik: yeni.icerik,
+          },
+        ];
+      });
+    });
+  }, [sohbetHazir, oda, yazan]);
+
   const kaydirEnAlta = useCallback(() => {
     const liste = listeRef.current;
     if (liste) liste.scrollTop = liste.scrollHeight;
@@ -69,33 +152,74 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
     kaydirEnAlta();
   }, [mesajlar, akanMetin, kaydirEnAlta]);
 
+  const odaDegistir = (yeniOda) => {
+    if (yeniOda === oda) return;
+    setYukleniyor(true);
+    setMesajlar([]);
+    setHata('');
+    setOda(yeniOda);
+  };
+
   const gonder = async (metin) => {
     const temiz = metin.trim();
     if (!temiz || bekliyor) return;
 
-    const yeniMesajlar = [...mesajlar, { rol: 'kullanici', kim: yazan, icerik: temiz }];
-    setMesajlar(yeniMesajlar);
-    gecmisiYaz(yeniMesajlar);
+    const anahtar = odaAnahtari(oda, yazan);
+    const gecmisMesajlar = [...mesajlar, { rol: 'kullanici', kim: yazan, icerik: temiz }];
+
+    // Anında göster (iyimser)
+    setMesajlar((oncekiler) => [...oncekiler, { ...gecmisMesajlar.at(-1), gecici: true }]);
     setGirdi('');
     setBekliyor(true);
     setAkanMetin('');
     setHata('');
 
     try {
+      // 1) Kullanıcı mesajını kaydet
+      if (sohbetHazir) {
+        const kayit = await sohbetMesajiEkle({
+          oda: anahtar,
+          gonderen: yazan,
+          rol: 'kullanici',
+          icerik: temiz,
+        });
+
+        if (kayit?.id) {
+          setMesajlar((oncekiler) =>
+            oncekiler.map((mesaj) => (mesaj.gecici ? { ...mesaj, id: kayit.id, gecici: false } : mesaj))
+          );
+        }
+      } else {
+        yerelYaz(oda, gecmisMesajlar);
+      }
+
+      // 2) Eros'un cevabını al (kelime kelime)
       const cevap = await erosaSor({
-        gecmis: yeniMesajlar,
+        gecmis: gecmisMesajlar,
         yazan,
         photos,
         notes,
         onParca: (parca) => setAkanMetin((onceki) => onceki + parca),
       });
 
-      const tamamlanmis = [
-        ...yeniMesajlar,
-        { rol: 'eros', icerik: cevap || '...' },
-      ];
-      setMesajlar(tamamlanmis);
-      gecmisiYaz(tamamlanmis);
+      const erosMesaji = { rol: 'eros', icerik: cevap || '...' };
+
+      // 3) Cevabı kaydet
+      if (sohbetHazir) {
+        const kayit = await sohbetMesajiEkle({
+          oda: anahtar,
+          gonderen: 'Eros',
+          rol: 'eros',
+          icerik: erosMesaji.icerik,
+        });
+        if (kayit?.id) erosMesaji.id = kayit.id;
+
+        setMesajlar((oncekiler) => [...oncekiler, erosMesaji]);
+      } else {
+        const tamamlanmis = [...gecmisMesajlar, erosMesaji];
+        setMesajlar(tamamlanmis);
+        yerelYaz(oda, tamamlanmis);
+      }
     } catch (err) {
       console.error(err);
       setHata(err.message || 'Eros cevap veremedi.');
@@ -118,14 +242,21 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
     }
   };
 
-  const temizle = () => {
-    gecmisiTemizle();
+  const temizle = async () => {
+    const anahtar = odaAnahtari(oda, yazan);
+
+    if (sohbetHazir) {
+      await sohbetTemizle(anahtar);
+    } else {
+      yerelTemizle(oda);
+    }
+
     setMesajlar([]);
     setHata('');
-    if (showToast) showToast('Eros ile sohbet sıfırlandı.', 'info');
+    if (showToast) showToast(`${ODA_BILGISI[oda].ad} sohbeti sıfırlandı.`, 'info');
   };
 
-  const bosMu = mesajlar.length === 0 && !akanMetin;
+  const bosMu = !yukleniyor && mesajlar.length === 0 && !akanMetin;
 
   return (
     <div className="fixed inset-0 z-[90] bg-rose-950/70 backdrop-blur-sm flex items-stretch sm:items-center justify-center p-0 sm:p-6 overflow-hidden">
@@ -176,8 +307,50 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
           </div>
         </div>
 
+        {/* ODA SEÇİMİ: ortak oda / bana özel */}
+        <div className="flex items-center gap-1.5 px-3 py-2 bg-rose-50 border-b border-rose-100 shrink-0">
+          {[ORTAK_ODA, OZEL_ODA].map((tur) => {
+            const bilgi = ODA_BILGISI[tur];
+            const secili = oda === tur;
+
+            return (
+              <button
+                key={tur}
+                type="button"
+                onClick={() => odaDegistir(tur)}
+                aria-pressed={secili}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-2xl text-[11px] font-bold transition cursor-pointer ${
+                  secili
+                    ? 'bg-white text-rose-700 shadow-sm border border-rose-200'
+                    : 'text-rose-400 hover:text-rose-600'
+                }`}
+              >
+                <span>{bilgi.ikon}</span>
+                <span>{bilgi.ad}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        <div
+          className={`px-4 py-1.5 text-[10px] font-semibold shrink-0 ${
+            oda === OZEL_ODA ? 'bg-amber-50 text-amber-800' : 'bg-emerald-50 text-emerald-800'
+          }`}
+        >
+          {oda === OZEL_ODA
+            ? '🔒 Bu oda yalnızca sana ait — diğerin bu konuşmayı göremez.'
+            : '💞 Ortak oda — ikiniz de bu konuşmayı görür ve yazabilirsiniz.'}
+        </div>
+
         {/* Mesajlar */}
         <div ref={listeRef} className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-3 bg-rose-50/40">
+          {yukleniyor && (
+            <div className="py-8 text-center">
+              <Loader2 className="w-5 h-5 animate-spin text-rose-400 mx-auto mb-2" />
+              <p className="text-[11px] text-rose-500 font-medium">Sohbet açılıyor...</p>
+            </div>
+          )}
+
           {bosMu && (
             <div className="text-center py-6">
               <div className="w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-500 to-pink-500 flex items-center justify-center mx-auto mb-3 shadow-lg shadow-rose-500/25">

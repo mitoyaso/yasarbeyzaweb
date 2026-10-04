@@ -349,6 +349,47 @@ kontrol('SSE: tam satır işlendi', tamponSonuc.olaylar.length, 1);
 kontrol('SSE: yarım satır tamponda kaldı', tamponSonuc.kalan.startsWith('data: {"cho'), true);
 
 // ==============================================================================
+bolum('ŞİFRE KURALLARI');
+// ==============================================================================
+import { sifreHatasi, sifreGucu, sifreGucuEtiketi } from '../src/lib/passwordRules.js';
+
+kontrol('boş mevcut şifre uyarısı', sifreHatasi({}), 'Mevcut şifreni girmelisin.');
+kontrol('boş yeni şifre uyarısı', sifreHatasi({ mevcut: 'abc12345' }), 'Yeni şifreni girmelisin.');
+kontrol(
+  'kısa şifre reddedilir',
+  sifreHatasi({ mevcut: 'abc12345', yeni: 'kisa1', tekrar: 'kisa1' }),
+  'Yeni şifre en az 8 karakter olmalı.'
+);
+kontrol(
+  'eskisiyle aynı olamaz',
+  sifreHatasi({ mevcut: 'abc12345', yeni: 'abc12345', tekrar: 'abc12345' }),
+  'Yeni şifre eskisiyle aynı olamaz.'
+);
+kontrol(
+  'uyuşmayan şifreler',
+  sifreHatasi({ mevcut: 'abc12345', yeni: 'yeniSifre1', tekrar: 'baskaSifre1' }),
+  'Yeni şifreler birbiriyle uyuşmuyor.'
+);
+kontrol(
+  'harf olmadan reddedilir',
+  sifreHatasi({ mevcut: 'abc12345', yeni: '12345678', tekrar: '12345678' }),
+  'Şifre en az bir harf ve bir rakam içermeli.'
+);
+kontrol(
+  'rakam olmadan reddedilir',
+  sifreHatasi({ mevcut: 'abc12345', yeni: 'sadeceharf', tekrar: 'sadeceharf' }),
+  'Şifre en az bir harf ve bir rakam içermeli.'
+);
+kontrol(
+  'geçerli şifre kabul edilir',
+  sifreHatasi({ mevcut: 'abc12345', yeni: 'YeniSifre1', tekrar: 'YeniSifre1' }),
+  null
+);
+kontrol('güç: kısa şifre 0-1', sifreGucu('abc1') <= 1, true);
+kontrol('güç: uzun karma şifre yüksek', sifreGucu('UzunSifre123!') >= 3, true);
+kontrol('güç etiketi', sifreGucuEtiketi(4), 'Güçlü');
+
+// ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');
 // ==============================================================================
 const entries = [

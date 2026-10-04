@@ -19,7 +19,7 @@ import {
 /**
  * Güvenlik ayarları: iki adımlı doğrulama (2FA) açma / kapatma.
  */
-export default function SecurityPanel({ showToast }) {
+export default function SecurityPanel({ showToast, onSifreDegistir }) {
   const [factors, setFactors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [enrollment, setEnrollment] = useState(null);
@@ -124,6 +124,25 @@ export default function SecurityPanel({ showToast }) {
         <ShieldCheck className="w-4 h-4 text-emerald-500" />
         Güvenlik
       </h3>
+
+      {/* ŞİFRE: herkesin kendi şifresi olsun */}
+      {onSifreDegistir && (
+        <div className="glass-card rounded-3xl p-5 border border-rose-200/70 mb-3 flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-bold text-sm text-rose-950 mb-0.5">Şifrem</p>
+            <p className="text-[11px] text-rose-600/85 leading-relaxed">
+              Şifreni yalnızca sen bilirsin. Buradan istediğin zaman değiştirebilirsin.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={onSifreDegistir}
+            className="shrink-0 py-2.5 px-4 rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50 transition cursor-pointer"
+          >
+            Değiştir
+          </button>
+        </div>
+      )}
 
       <div
         className={`glass-card rounded-3xl p-5 border ${

@@ -11,6 +11,7 @@
     "test:boot": "node tests/smoke-boot.mjs",
     "test:app": "node tests/smoke-authenticated.mjs",
     "test:writes": "node tests/smoke-writes.mjs",
+    "test:firstlogin": "node tests/smoke-first-login.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

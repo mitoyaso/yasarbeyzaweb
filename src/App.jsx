@@ -11,6 +11,7 @@ import SupabaseInfoModal from './components/SupabaseInfoModal';
 import InstallPrompt from './components/InstallPrompt';
 import UsPanel from './components/us/UsPanel';
 import MfaChallenge from './components/MfaChallenge';
+import PasswordModal from './components/PasswordModal';
 import { STORAGE_KEYS, SENDERS } from './lib/constants';
 import { getPhotos, getNotes, isSupabaseConfigured } from './lib/supabase';
 import {
@@ -18,6 +19,7 @@ import {
   subscribeToAuthChanges,
   signOutUser,
   displayNameFromSession,
+  sifreKisiselMi,
 } from './lib/auth';
 import { isMfaChallengeRequired } from './lib/mfa';
 import { subscribeToLiveChanges } from './lib/realtime';
@@ -33,6 +35,9 @@ export default function App() {
 
   // İki adımlı doğrulama (2FA) gerekiyor mu? (hesabında 2FA açıksa true)
   const [mfaRequired, setMfaRequired] = useState(false);
+
+  // Şifre penceresi: ilk girişte "kendi şifreni belirle", sonra istenirse
+  const [sifrePenceresi, setSifrePenceresi] = useState({ acik: false, ilkGiris: false });
 
   // Aktif Gönderen: GİRİŞ YAPILAN HESABA göre belirlenir (Yaşar veya Beyza).
   // Artık kullanıcı tarafından değiştirilemez; hangi hesapla girildiyse öyle kalır.
@@ -71,6 +76,11 @@ export default function App() {
 
       setSession(restored);
 
+      // İlk girişte herkes kendi şifresini belirlesin (diğeri bilmesin)
+      if (restored && !sifreKisiselMi(restored)) {
+        setSifrePenceresi({ acik: true, ilkGiris: true });
+      }
+
       if (restored) {
         // Hesabında 2FA açıksa oturum henüz tam doğrulanmamıştır (aal1).
         try {
@@ -97,6 +107,11 @@ export default function App() {
   // Giriş Başarılı Olduğunda
   const handleLoginSuccess = async (newSession) => {
     setSession(newSession ?? null);
+
+    // İlk giriş: şifresini kendisi belirlesin
+    if (newSession && !sifreKisiselMi(newSession)) {
+      setSifrePenceresi({ acik: true, ilkGiris: true });
+    }
 
     // Hesabında 2FA açıksa ikinci adım (kod) istenir.
     try {
@@ -462,6 +477,7 @@ export default function App() {
               )
             }
             onDataRestored={handleDataRestored}
+            onSifreDegistir={() => setSifrePenceresi({ acik: true, ilkGiris: false })}
           />
         )}
       </main>
@@ -491,6 +507,16 @@ export default function App() {
 
       {/* Telefona kurulum daveti (PWA) */}
       <InstallPrompt />
+
+      {/* Şifre penceresi: ilk girişte zorunlu öneri, sonra isteğe bağlı */}
+      {sifrePenceresi.acik && !mfaRequired && (
+        <PasswordModal
+          ilkGiris={sifrePenceresi.ilkGiris}
+          kisiAdi={activeSender}
+          showToast={showToast}
+          onClose={() => setSifrePenceresi({ acik: false, ilkGiris: false })}
+        />
+      )}
     </div>
   );
 }

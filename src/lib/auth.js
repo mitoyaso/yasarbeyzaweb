@@ -104,6 +104,50 @@ export function subscribeToAuthChanges(callback) {
 }
 
 /**
+ * Kullanıcı kendi şifresini belirledi mi?
+ * (İlk girişte herkesin kendi şifresini oluşturması için kullanılır.)
+ */
+export function sifreKisiselMi(session) {
+  return Boolean(session?.user?.user_metadata?.sifre_kisisel);
+}
+
+/**
+ * Şifre değiştirir.
+ * Önce MEVCUT şifreyi doğrular (böylece açık unutulmuş bir oturumla
+ * şifre değiştirilemez), sonra yenisini belirler.
+ */
+export async function sifreDegistir(mevcutSifre, yeniSifre) {
+  const oturum = await getCurrentSession();
+  const email = oturum?.user?.email;
+
+  if (!email) {
+    throw new Error('Oturum bulunamadı. Lütfen tekrar giriş yapın.');
+  }
+
+  // 1) Mevcut şifre gerçekten doğru mu?
+  const { error: dogrulamaHatasi } = await supabase.auth.signInWithPassword({
+    email,
+    password: mevcutSifre,
+  });
+
+  if (dogrulamaHatasi) {
+    throw new Error('Mevcut şifren doğru değil.');
+  }
+
+  // 2) Yeni şifreyi belirle ve "kendi şifremi belirledim" işaretini koy
+  const { data, error } = await supabase.auth.updateUser({
+    password: yeniSifre,
+    data: { sifre_kisisel: true, sifre_tarihi: new Date().toISOString() },
+  });
+
+  if (error) {
+    throw new Error(translateAuthError(error));
+  }
+
+  return data?.user ?? null;
+}
+
+/**
  * Oturumdan görünen adı ("Yaşar" / "Beyza") çıkarır.
  * Tanımlı olmayan bir hesapla giriş yapılmışsa null döner.
  */

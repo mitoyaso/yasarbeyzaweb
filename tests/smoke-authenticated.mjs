@@ -224,6 +224,28 @@ kontrol(
   true
 );
 kontrol('Karşılama mesajı göründü', icerik.includes('Merhaba, ben Eros'), true);
+
+// Oda seçimi: ortak + bana özel
+kontrol('Ortak oda sekmesi var', icerik.includes('Ortak Oda'), true);
+kontrol('Özel oda sekmesi var', icerik.includes('Bana Özel'), true);
+kontrol('Ortak oda açıklaması görünüyor', icerik.includes('ikiniz de bu konuşmayı görür'), true);
+
+// Özel odaya geç → diğerinin göremeyeceği uyarı çıkmalı
+tikla(document, 'Bana Özel');
+await bekle(600);
+kontrol(
+  'Özel oda uyarısı yazıyor (diğeri göremez)',
+  document.getElementById('root').innerHTML.includes('yalnızca sana ait'),
+  true
+);
+tikla(document, 'Ortak Oda');
+await bekle(500);
+
+kontrol(
+  'Şifre penceresi (şifresi belirlenmiş oturumda) açılmıyor',
+  document.querySelector('[role="dialog"][aria-label="Şifre Değiştir"]') === null,
+  true
+);
 kontrol('Öneri düğmeleri var', icerik.includes('sürprik fikri') || icerik.includes('sürpriz fikri'), true);
 kontrol(
   'Gizlilik uyarısı var (uzman değildir)',

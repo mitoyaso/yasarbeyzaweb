@@ -198,14 +198,14 @@ function base64urlKodla(nesne) {
  * Giriş yapılmış gibi sahte bir oturum yerleştirir.
  * (Sunucu tarafında geçerli değildir; amaç yalnızca arayüzü çizdirmek.)
  */
-export function sahteOturumKur(window) {
+export function sahteOturumKur(window, { sifreKisisel = true, eposta = 'yasar@sevgunlugu.com' } = {}) {
   const suresi = Math.floor(Date.now() / 1000) + 86400;
 
   const token = [
     base64urlKodla({ alg: 'HS256', typ: 'JWT' }),
     base64urlKodla({
       sub: 'test-kullanici',
-      email: 'yasar@sevgunlugu.com',
+      email: eposta,
       role: 'authenticated',
       exp: suresi,
     }),
@@ -222,10 +222,11 @@ export function sahteOturumKur(window) {
       id: 'test-kullanici',
       aud: 'authenticated',
       role: 'authenticated',
-      email: 'yasar@sevgunlugu.com',
+      email: eposta,
       email_confirmed_at: new Date().toISOString(),
       app_metadata: { provider: 'email' },
-      user_metadata: {},
+      // sifreKisisel=false → ilk giriş akışı (şifre belirleme penceresi) denenir
+      user_metadata: sifreKisisel ? { sifre_kisisel: true } : {},
       created_at: new Date().toISOString(),
     },
   };
