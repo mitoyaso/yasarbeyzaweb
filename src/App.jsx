@@ -441,6 +441,11 @@ export default function App() {
             notes={notes}
             showToast={showToast}
             activeSender={activeSender}
+            onPhotoPatched={(photoId, patch) =>
+              setPhotos((prev) =>
+                prev.map((item) => (item.id === photoId ? { ...item, ...patch } : item))
+              )
+            }
           />
         )}
       </main>

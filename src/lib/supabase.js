@@ -884,6 +884,72 @@ export async function backfillMissingThumbnails({ onProgress } = {}) {
 }
 
 // ==============================================================================
+// ANI HARİTASI — KONUM İŞLEMLERİ
+// ==============================================================================
+// latitude / longitude / location_name sütunları Faz 3 SQL betiğiyle eklenir.
+// Sütunlar yoksa isLocationAvailable() false döner ve arayüz bölümü gizler.
+
+/**
+ * Konum özelliği kullanılabilir mi? (sütunlar eklendi mi)
+ */
+export async function isLocationAvailable() {
+  if (!isSupabaseConfigured) return false;
+
+  try {
+    const { error } = await supabase.from('photos').select('latitude').limit(1);
+    return !error;
+  } catch (err) {
+    console.warn('Konum özelliği kontrol edilemedi:', err);
+    return false;
+  }
+}
+
+/**
+ * Bir anının konumunu kaydeder.
+ */
+export async function updatePhotoLocation(photoId, { latitude, longitude, locationName }) {
+  if (!photoId) throw new Error('Konum eklenecek anı bulunamadı.');
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    throw new Error('Geçerli bir konum seçilmedi.');
+  }
+
+  const { error } = await supabase
+    .from('photos')
+    .update({
+      latitude,
+      longitude,
+      location_name: locationName?.trim() || null,
+    })
+    .eq('id', photoId);
+
+  if (error) {
+    console.error('Konum kaydetme hatası:', error);
+    throw new Error('Konum kaydedilemedi: ' + error.message);
+  }
+
+  return true;
+}
+
+/**
+ * Bir anının konumunu kaldırır.
+ */
+export async function clearPhotoLocation(photoId) {
+  if (!photoId) return false;
+
+  const { error } = await supabase
+    .from('photos')
+    .update({ latitude: null, longitude: null, location_name: null })
+    .eq('id', photoId);
+
+  if (error) {
+    console.error('Konum silme hatası:', error);
+    throw new Error('Konum kaldırılamadı: ' + error.message);
+  }
+
+  return true;
+}
+
+// ==============================================================================
 // İSTATİSTİKLER VE YEDEKLEME VERİSİ
 // ==============================================================================
 

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { getCounts, backfillMissingThumbnails } from '../../lib/supabase';
+import { getCounts, backfillMissingThumbnails, isLocationAvailable } from '../../lib/supabase';
 import { isQuizAvailable, fetchQuizAnswers, quizProgress } from '../../lib/quiz';
 import QuizModal from './QuizModal';
+import MemoryMap from './MemoryMap';
 import { computeStats, computeAchievements } from '../../lib/achievements';
 import { exportDataOnly, exportFullBackup } from '../../lib/backup';
 import MemoryGame from './MemoryGame';
@@ -26,6 +27,7 @@ import {
   ShieldCheck,
   Zap,
   Sparkles,
+  Map as MapIcon,
 } from 'lucide-react';
 
 const LAST_BACKUP_KEY = 'yasar_beyza_last_backup_v1';
@@ -44,7 +46,13 @@ function formatDateTime(isoString) {
   });
 }
 
-export default function UsPanel({ photos = [], notes = [], showToast, activeSender = 'Yaşar' }) {
+export default function UsPanel({
+  photos = [],
+  notes = [],
+  showToast,
+  activeSender = 'Yaşar',
+  onPhotoPatched,
+}) {
   const [counts, setCounts] = useState(null);
   const [isLoadingStats, setIsLoadingStats] = useState(true);
   const [isGameOpen, setIsGameOpen] = useState(false);
@@ -54,6 +62,8 @@ export default function UsPanel({ photos = [], notes = [], showToast, activeSend
   const [quizAvailable, setQuizAvailable] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizRows, setQuizRows] = useState([]);
+  const [locationAvailable, setLocationAvailable] = useState(false);
+  const [isMapOpen, setIsMapOpen] = useState(false);
   const [lastBackupAt, setLastBackupAt] = useState(() => localStorage.getItem(LAST_BACKUP_KEY));
   // Yaş hesaplaması için "şimdi" değeri bir kez alınır (render sırasında impure çağrı olmasın)
   const [nowTs] = useState(() => Date.now());
@@ -112,6 +122,21 @@ export default function UsPanel({ photos = [], notes = [], showToast, activeSend
         });
       })
       .catch((err) => console.warn('Quiz kontrolü başarısız:', err));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Anı haritası yalnızca latitude/longitude sütunları varsa gösterilir.
+  useEffect(() => {
+    let cancelled = false;
+
+    isLocationAvailable()
+      .then((ok) => {
+        if (!cancelled && ok) setLocationAvailable(true);
+      })
+      .catch((err) => console.warn('Konum özelliği kontrolü başarısız:', err));
 
     return () => {
       cancelled = true;
@@ -424,6 +449,22 @@ export default function UsPanel({ photos = [], notes = [], showToast, activeSend
               </p>
             </button>
           )}
+
+          {locationAvailable && (
+            <button
+              type="button"
+              onClick={() => setIsMapOpen(true)}
+              className="glass-card glass-card-hover rounded-3xl p-5 border border-rose-200/70 text-left cursor-pointer"
+            >
+              <div className="w-11 h-11 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-500 flex items-center justify-center text-white shadow-md mb-3">
+                <MapIcon className="w-5 h-5" />
+              </div>
+              <p className="font-bold text-rose-950 mb-0.5">Anı Haritası</p>
+              <p className="text-[11px] sm:text-xs text-rose-600/80 leading-relaxed">
+                Anılarınızın yerlerini haritada görün; konum eklemek için haritada dokunun.
+              </p>
+            </button>
+          )}
         </div>
       </div>
 
@@ -549,6 +590,15 @@ export default function UsPanel({ photos = [], notes = [], showToast, activeSend
             setIsQuizOpen(false);
             refreshQuiz();
           }}
+        />
+      )}
+
+      {isMapOpen && (
+        <MemoryMap
+          photos={photos}
+          showToast={showToast}
+          onPhotoUpdated={onPhotoPatched}
+          onClose={() => setIsMapOpen(false)}
         />
       )}
     </div>

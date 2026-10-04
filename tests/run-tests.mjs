@@ -27,6 +27,17 @@ import {
   guessKey,
   QUIZ_QUESTIONS,
 } from '../src/lib/quizCore.js';
+import {
+  toCoord,
+  hasLocation,
+  geotaggedPhotos,
+  photosWithoutLocation,
+  mapCenter,
+  mapZoom,
+  locationLabel,
+  groupByLocation,
+  TURKIYE_MERKEZ,
+} from '../src/lib/geo.js';
 
 let toplamTest = 0;
 let basarisiz = 0;
@@ -203,6 +214,44 @@ const quizIlerleme2 = quizProgress(
   'Yaşar'
 );
 kontrol('sadece boşluk → cevap sayılmaz', quizIlerleme2.tamamlanan, 0);
+
+// ==============================================================================
+bolum('ANI HARİTASI — KONUM YARDIMCILARI');
+// ==============================================================================
+kontrol('toCoord: sayı', toCoord(41.0082), 41.0082);
+kontrol('toCoord: metin sayı', toCoord('29.0'), 29);
+kontrol('toCoord: sıfır geçerli koordinat', toCoord(0), 0);
+kontrol('toCoord: boş metin → null', toCoord(''), null);
+kontrol('toCoord: null → null', toCoord(null), null);
+kontrol('toCoord: geçersiz → null', toCoord('abc'), null);
+
+const haritaFotolar = [
+  { id: '1', storage_path: 'a.jpg', latitude: 41.0, longitude: 29.0, location_name: 'İstanbul' },
+  { id: '2', storage_path: 'b.jpg', latitude: 38.6, longitude: 34.8, location_name: '' },
+  { id: '3', storage_path: 'c.jpg', latitude: null, longitude: null },
+  { id: '4', storage_path: 'demo-1.jpg', latitude: 40.0, longitude: 30.0 },
+];
+
+kontrol('konumu olan anı sayısı', geotaggedPhotos(haritaFotolar).length, 3);
+kontrol('konum bekleyen anılar (demo hariç)', photosWithoutLocation(haritaFotolar).map((p) => p.id), ['3']);
+kontrol('hasLocation: konumlu', hasLocation(haritaFotolar[0]), true);
+kontrol('hasLocation: konumsuz', hasLocation(haritaFotolar[2]), false);
+
+const haritaMerkez = mapCenter(haritaFotolar);
+kontrol('merkez = koordinatların ortalaması', Number(haritaMerkez.lat.toFixed(3)), Number(((41 + 38.6 + 40) / 3).toFixed(3)));
+kontrol('konum yoksa Türkiye merkezi', mapCenter([{ id: 'x' }]), TURKIYE_MERKEZ);
+
+kontrol('yakınlaştırma: konum yok → 6', mapZoom([]), 6);
+kontrol('yakınlaştırma: tek anı → 13', mapZoom([haritaFotolar[0]]), 13);
+kontrol('yakınlaştırma: çok anı → geniş', mapZoom(haritaFotolar), 10);
+
+kontrol('etiket: yer adı varsa onu kullanır', locationLabel(haritaFotolar[0]), 'İstanbul');
+kontrol('etiket: ad yoksa koordinat yazar', locationLabel(haritaFotolar[1]), '38.600, 34.800');
+kontrol('etiket: konum yoksa', locationLabel({ id: 'z' }), 'Konum yok');
+
+const haritaGruplar = groupByLocation(haritaFotolar);
+kontrol('konum grubu sayısı', haritaGruplar.length, 3);
+kontrol('grup etiketleri', haritaGruplar.map((g) => g.etiket), ['İstanbul', '38.600, 34.800', '40.000, 30.000']);
 
 // ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');
