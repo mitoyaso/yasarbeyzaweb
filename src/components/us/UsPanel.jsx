@@ -3,6 +3,7 @@ import { getCounts, backfillMissingThumbnails, isLocationAvailable, isTrashAvail
 import { isQuizAvailable, fetchQuizAnswers, quizProgress } from '../../lib/quiz';
 import QuizModal from './QuizModal';
 import MemoryMap from './MemoryMap';
+import { trashStats } from '../../lib/trashCore';
 import TrashPanel from './TrashPanel';
 import { computeStats, computeAchievements } from '../../lib/achievements';
 import { exportDataOnly, exportFullBackup } from '../../lib/backup';
@@ -70,6 +71,7 @@ export default function UsPanel({
   const [trashAvailable, setTrashAvailable] = useState(false);
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [trashCount, setTrashCount] = useState(0);
+  const [trashExpiredCount, setTrashExpiredCount] = useState(0);
   const [lastBackupAt, setLastBackupAt] = useState(() => localStorage.getItem(LAST_BACKUP_KEY));
   // Yaş hesaplaması için "şimdi" değeri bir kez alınır (render sırasında impure çağrı olmasın)
   const [nowTs] = useState(() => Date.now());
@@ -150,17 +152,22 @@ export default function UsPanel({
   }, []);
 
   // Çöp kutusu yalnızca deleted_at sütunu varsa gösterilir.
+  const applyTrashCounts = useCallback((foto, not) => {
+    setTrashCount(foto.length + not.length);
+    setTrashExpiredCount(trashStats([...foto, ...not]).suresiGecen);
+  }, []);
+
   const refreshTrashCount = useCallback(async () => {
     try {
       const [silinenFotolar, silinenNotlar] = await Promise.all([
         getDeletedPhotos(),
         getDeletedNotes(),
       ]);
-      setTrashCount(silinenFotolar.length + silinenNotlar.length);
+      applyTrashCounts(silinenFotolar, silinenNotlar);
     } catch (err) {
       console.warn('Çöp kutusu sayısı okunamadı:', err);
     }
-  }, []);
+  }, [applyTrashCounts]);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,7 +177,7 @@ export default function UsPanel({
         if (cancelled || !ok) return undefined;
         setTrashAvailable(true);
         return Promise.all([getDeletedPhotos(), getDeletedNotes()]).then(([foto, not]) => {
-          if (!cancelled) setTrashCount(foto.length + not.length);
+          if (!cancelled) applyTrashCounts(foto, not);
         });
       })
       .catch((err) => console.warn('Çöp kutusu kontrolü başarısız:', err));
@@ -178,7 +185,7 @@ export default function UsPanel({
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applyTrashCounts]);
 
   const stats = useMemo(
     () => computeStats({ counts: counts ?? {}, photos, notes }),
@@ -620,6 +627,11 @@ export default function UsPanel({
               <p className="text-[11px] text-rose-600/85 leading-relaxed">
                 Silinen anılar ve notlar 30 gün boyunca burada durur; dilediğin an geri
                 getirebilirsin.
+                {trashExpiredCount > 0 && (
+                  <span className="block mt-1 font-bold text-amber-600">
+                    {trashExpiredCount} kaydın süresi doldu — yer açmak için kalıcı silebilirsin.
+                  </span>
+                )}
               </p>
             </div>
 

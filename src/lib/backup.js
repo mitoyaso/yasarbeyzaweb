@@ -77,7 +77,7 @@ export async function exportDataOnly() {
   };
 }
 
-function buildReadme({ photoCount, missingCount, createdAt }) {
+function buildReadme({ photoCount, missingCount, createdAt, trashedCount = 0 }) {
   return [
     'YAŞAR & BEYZA — SONSUZ AŞK GÜNLÜĞÜ YEDEĞİ',
     '=========================================',
@@ -85,10 +85,20 @@ function buildReadme({ photoCount, missingCount, createdAt }) {
     `Yedek tarihi      : ${createdAt.toLocaleString('tr-TR')}`,
     `Fotoğraf sayısı   : ${photoCount}`,
     missingCount > 0 ? `İndirilemeyen dosya: ${missingCount}` : null,
+    trashedCount > 0
+      ? `Çöpte bekleyen    : ${trashedCount} kayıt (silinmiş ama geri alınabilir)`
+      : null,
     '',
     'Bu arşivin içinde ne var?',
     '  veriler.json  → Tüm notlar, fotoğraf kayıtları, yorumlar ve beğeniler',
     '  fotograflar/  → Albümdeki tüm fotoğraf dosyaları (tam boy)',
+    '',
+    trashedCount > 0
+      ? 'NOT: Uygulamada "çöp kutusuna taşınmış" kayıtlar da yedeğe dahil edilmiştir;'
+      : null,
+    trashedCount > 0
+      ? '     veriler.json içinde bu kayıtların "deleted_at" alanı doludur.'
+      : null,
     '',
     'Fotoğraf dosyalarının adı şu kalıptadır:',
     '  <tarih>_<kim-yükledi>_<orijinal-dosya-adi>',
@@ -176,7 +186,14 @@ export async function exportFullBackup({ onProgress } = {}) {
   entries.push({
     name: 'OKUBENI.txt',
     data: textToBytes(
-      buildReadme({ photoCount: fileByPhotoId.size, missingCount, createdAt })
+      buildReadme({
+        photoCount: fileByPhotoId.size,
+        missingCount,
+        createdAt,
+        // Çöpteki kayıtlar veriler.json'da "deleted_at" alanıyla işaretlidir;
+        // yedek eksiksiz olsun diye dosyaları da arşive eklenir.
+        trashedCount: data.photos.filter((photo) => photo.deleted_at).length,
+      })
     ),
   });
 

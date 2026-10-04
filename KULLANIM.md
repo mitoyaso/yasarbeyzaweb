@@ -96,6 +96,10 @@ Yanlışlıkla silinen bir anı veya not **30 gün** boyunca çöp kutusunda bek
 
 > Silme bildiriminde *"çöp kutusuna taşındı"* yazıyorsa geri alınabilir;
 > *"kalıcı olarak silindi"* yazıyorsa geri alınamaz.
+>
+> Süresi dolan kayıtlar **kendiliğinden silinmez**. Depolama alanında yer açmak
+> istediğinde çöp kutusundaki *"Süresi dolanları kalıcı sil"* düğmesini kullanabilirsin
+> (iki kez onay ister).
 
 
 ### Bizim Filmimiz

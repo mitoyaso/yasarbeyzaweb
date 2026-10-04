@@ -7,7 +7,7 @@ import {
   purgePhoto,
   purgeNote,
 } from '../../lib/supabase';
-import { trashStats, daysLeftLabel, sortTrash } from '../../lib/trashCore';
+import { trashStats, daysLeftLabel, sortTrash, isTrashExpired } from '../../lib/trashCore';
 import { useModalA11y } from '../../lib/useModalA11y';
 import {
   X,
@@ -32,6 +32,8 @@ export default function TrashPanel({ onClose, onRestored, showToast }) {
   const [isLoading, setIsLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [confirmingId, setConfirmingId] = useState(null);
+  const [isPurgingExpired, setIsPurgingExpired] = useState(false);
+  const [confirmExpired, setConfirmExpired] = useState(false);
   const [error, setError] = useState('');
 
   const load = useCallback(async () => {
@@ -121,8 +123,52 @@ export default function TrashPanel({ onClose, onRestored, showToast }) {
     }
   };
 
-  const renderPhoto = (photo) => (
-    <div
+  // Saklama süresi dolmuş kayıtları tek seferde kalıcı olarak siler.
+  // (Otomatik silme YOKTUR: bu işlem yalnızca kullanıcı onayıyla yapılır.)
+  const handlePurgeExpired = async () => {
+    if (!confirmExpired) {
+      setConfirmExpired(true);
+      return;
+    }
+
+    const suresiGecenFotolar = photos.filter((photo) => isTrashExpired(photo.deleted_at));
+    const suresiGecenNotlar = notes.filter((note) => isTrashExpired(note.deleted_at));
+
+    setIsPurgingExpired(true);
+    let silinen = 0;
+
+    for (const photo of suresiGecenFotolar) {
+      try {
+        await purgePhoto(photo);
+        silinen += 1;
+      } catch (err) {
+        console.error('Kalıcı silme hatası:', err);
+      }
+    }
+
+    for (const note of suresiGecenNotlar) {
+      try {
+        await purgeNote(note.id);
+        silinen += 1;
+      } catch (err) {
+        console.error('Kalıcı silme hatası (not):', err);
+      }
+    }
+
+    setIsPurgingExpired(false);
+    setConfirmExpired(false);
+
+    if (showToast) {
+      showToast(
+        silinen > 0 ? `${silinen} kayıt kalıcı olarak silindi.` : 'Silinecek kayıt bulunamadı.',
+        silinen > 0 ? 'info' : 'success'
+      );
+    }
+
+    await load();
+  };
+
+  const renderPhoto = (photo) => (    <div
       key={photo.id}
       className="flex items-center gap-3 p-3 rounded-2xl border border-rose-100 bg-white/70"
     >
@@ -240,7 +286,7 @@ export default function TrashPanel({ onClose, onRestored, showToast }) {
             <div>
               <h3 className="text-base font-extrabold text-rose-950 font-serif">Çöp Kutusu</h3>
               <p className="text-[11px] text-rose-500 font-medium">
-                {ozet.toplam} kayıt · 30 gün sonra otomatik silinir
+                {ozet.toplam} kayıt · 30 gün boyunca geri alınabilir
               </p>
             </div>
           </div>
@@ -280,12 +326,36 @@ export default function TrashPanel({ onClose, onRestored, showToast }) {
           ) : (
             <>
               {ozet.suresiGecen > 0 && (
-                <div className="mb-4 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium flex items-start gap-2">
-                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
-                  <span>
-                    {ozet.suresiGecen} kaydın saklama süresi doldu. İstersen şimdi kalıcı olarak
-                    silebilirsin.
-                  </span>
+                <div className="mb-4 p-3 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-[11px] font-medium">
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                    <span>
+                      {ozet.suresiGecen} kaydın 30 günlük saklama süresi doldu. Yer açmak için
+                      kalıcı olarak silebilirsin. <strong>Kendiliğinden silinmez.</strong>
+                    </span>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handlePurgeExpired}
+                    disabled={isPurgingExpired}
+                    className={`mt-2.5 py-2 px-3 rounded-xl text-[11px] font-bold transition flex items-center gap-1.5 cursor-pointer disabled:opacity-60 ${
+                      confirmExpired
+                        ? 'bg-red-600 text-white'
+                        : 'bg-white border border-amber-300 text-amber-900 hover:bg-amber-100'
+                    }`}
+                  >
+                    {isPurgingExpired ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-3.5 h-3.5" />
+                    )}
+                    <span>
+                      {confirmExpired
+                        ? 'Emin misin? Geri alınamaz'
+                        : `Süresi dolanları kalıcı sil (${ozet.suresiGecen})`}
+                    </span>
+                  </button>
                 </div>
               )}
 
@@ -310,8 +380,8 @@ export default function TrashPanel({ onClose, onRestored, showToast }) {
               )}
 
               <p className="text-[10px] text-rose-400 text-center mt-4 leading-relaxed">
-                <Trash2 className="w-3 h-3 inline -mt-0.5" /> ile işaretlenenler bir daha geri
-                getirilemez. Süresi dolan kayıtların fotoğrafları da depolamadan silinir.
+                <Trash2 className="w-3 h-3 inline -mt-0.5" /> ile kalıcı silinen kayıtlar bir daha
+                geri getirilemez ve fotoğrafları depolama alanından da kaldırılır.
               </p>
             </>
           )}
