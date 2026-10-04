@@ -77,6 +77,17 @@ export async function signInWithName(name, password) {
     throw new Error(translateAuthError(error));
   }
 
+  // GÜVENLİK: Sadece tanımlı hesaplar (Yaşar / Beyza) girebilir.
+  // Dışarıdan biri kendi hesabını açmış olsa bile burada oturumu kapatılır ve
+  // veritabanı politikaları da zaten onu tanımaz.
+  const signedInName = nameForEmail(data?.user?.email);
+  if (!signedInName) {
+    await supabase.auth.signOut();
+    throw new Error(
+      'Bu hesap günlüğe tanımlı değil. Yalnızca Yaşar ve Beyza\'nın hesapları giriş yapabilir.'
+    );
+  }
+
   return data.session;
 }
 
