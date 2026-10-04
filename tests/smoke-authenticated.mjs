@@ -211,6 +211,26 @@ console.log(
     '       kalabilir; bunun gerçek tarayıcıda olup olmadığı ancak canlı testte anlaşılır.'
 );
 
+console.log('\n8) EROS (yapay zekâ danışman)');
+escBas();
+await bekle(500);
+kontrol('Eros kartı göründü', document.getElementById('root').innerHTML.includes('Eros'), true);
+tikla(document, 'Sohbet et');
+await bekle(700);
+icerik = document.getElementById('root').innerHTML;
+kontrol(
+  'Eros sohbet ekranı açıldı',
+  document.querySelector('[role="dialog"][aria-label="Eros"]') !== null,
+  true
+);
+kontrol('Karşılama mesajı göründü', icerik.includes('Merhaba, ben Eros'), true);
+kontrol('Öneri düğmeleri var', icerik.includes('sürpriz fikri'), true);
+kontrol(
+  'Gizlilik uyarısı var (uzman değildir)',
+  icerik.includes('uzman değildir'),
+  true
+);
+
 console.log('\n=== SONUÇ ===');
 console.log(`  ${basarisiz === 0 ? 'TÜM KONTROLLER GEÇTİ ✅' : `${basarisiz} kontrol BAŞARISIZ ❌`}`);
 

@@ -5,6 +5,7 @@ import QuizModal from './QuizModal';
 import MemoryMap from './MemoryMap';
 import { trashStats } from '../../lib/trashCore';
 import TrashPanel from './TrashPanel';
+import ErosChat from './ErosChat';
 import { computeStats, computeAchievements } from '../../lib/achievements';
 import { exportDataOnly, exportFullBackup } from '../../lib/backup';
 import MemoryGame from './MemoryGame';
@@ -72,6 +73,7 @@ export default function UsPanel({
   const [isTrashOpen, setIsTrashOpen] = useState(false);
   const [trashCount, setTrashCount] = useState(0);
   const [trashExpiredCount, setTrashExpiredCount] = useState(0);
+  const [isErosOpen, setIsErosOpen] = useState(false);
   const [lastBackupAt, setLastBackupAt] = useState(() => localStorage.getItem(LAST_BACKUP_KEY));
   // Yaş hesaplaması için "şimdi" değeri bir kez alınır (render sırasında impure çağrı olmasın)
   const [nowTs] = useState(() => Date.now());
@@ -306,6 +308,33 @@ export default function UsPanel({
         <p className="text-xs sm:text-sm text-rose-600/80">
           İstatistiklerimiz, başarımlarımız, oyunlarımız ve yedeklerimiz bir arada.
         </p>
+      </div>
+
+      {/* EROS — İlişki danışmanı */}
+      <div className="relative overflow-hidden rounded-3xl p-5 sm:p-6 bg-gradient-to-br from-rose-500 via-pink-500 to-fuchsia-500 text-white shadow-xl shadow-rose-500/20">
+        <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-white/10" aria-hidden="true" />
+        <div className="relative flex items-center justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-2xl">💘</span>
+              <h3 className="text-lg font-extrabold font-serif">Eros</h3>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/25">
+                YENİ
+              </span>
+            </div>
+            <p className="text-[11px] sm:text-xs text-white/90 leading-relaxed">
+              Sizi tanıyan, taraf tutmayan danışmanınız. Sürpriz fikri, akıl danışma, sohbet...
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setIsErosOpen(true)}
+            className="shrink-0 py-3 px-4 rounded-2xl bg-white text-rose-600 text-xs sm:text-sm font-extrabold hover:bg-rose-50 transition shadow-lg cursor-pointer"
+          >
+            Sohbet et
+          </button>
+        </div>
       </div>
 
       {/* İstatistik Kartları */}
@@ -682,9 +711,18 @@ export default function UsPanel({
         />
       )}
 
-      {isTrashOpen && (
-        <TrashPanel
+      {isErosOpen && (
+        <ErosChat
+          photos={photos}
+          notes={notes}
+          yazan={activeSender}
           showToast={showToast}
+          onClose={() => setIsErosOpen(false)}
+        />
+      )}
+
+      {isTrashOpen && (
+        <TrashPanel          showToast={showToast}
           onClose={() => {
             setIsTrashOpen(false);
             refreshTrashCount();

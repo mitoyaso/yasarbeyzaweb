@@ -300,6 +300,55 @@ const copSirali = sortTrash([
 kontrol('en son silinen başta', copSirali.map((x) => x.id), ['b', 'c', 'a']);
 
 // ==============================================================================
+bolum('EROS — KİŞİLİK VE AKIŞ');
+// ==============================================================================
+import {
+  erosSistemPromptu,
+  uygulamaVerisiOzetle,
+  EROS_KARAKTERI,
+} from '../src/lib/erosPersona.js';
+import { sseSatiriniCoz, sseTamponuIsle } from '../src/lib/erosStream.js';
+
+const sistem = erosSistemPromptu({
+  profil: '## Kısaca\nYaşar ve Beyza 2024te tanıştı.',
+  uygulamaVerisi: 'Son anılar:\n- 2026-10-01 · Yaşar — "Piknik"',
+  yazan: 'Yaşar',
+  tarih: '2026-10-04',
+});
+
+kontrol('Eros karakteri tanımlı', EROS_KARAKTERI.includes('Eros'), true);
+kontrol('Tarafsızlık kuralı var', EROS_KARAKTERI.includes('TARAF TUTMA'), true);
+kontrol('Uydurmama kuralı var', EROS_KARAKTERI.includes('UYDURMA'), true);
+kontrol('Uzman yönlendirmesi var', EROS_KARAKTERI.includes('uzmana yönlendir'), true);
+kontrol('Sistem promptunda profil var', sistem.includes('2024te tanıştı'), true);
+kontrol('Sistem promptunda yazan kişi var', sistem.includes('Yaşar'), true);
+kontrol('Sistem promptunda tarih var', sistem.includes('2026-10-04'), true);
+kontrol('Sistem promptunda uygulama verisi var', sistem.includes('Piknik'), true);
+kontrol(
+  'Profil yoksa "bilgin yok" der',
+  erosSistemPromptu({}).includes('ayrıntılı bir geçmiş bilgin yok'),
+  true
+);
+
+const ozet = uygulamaVerisiOzetle({
+  photos: [{ created_at: '2026-10-01T10:00:00Z', uploaded_by: 'Beyza', caption: 'Deniz', location_name: 'Antalya' }],
+  notes: [{ created_at: '2026-10-02T10:00:00Z', sender: 'Yaşar', content: 'Seni seviyorum' }],
+});
+kontrol('Anı özeti tarih içeriyor', ozet.includes('2026-10-01'), true);
+kontrol('Anı özeti konum içeriyor', ozet.includes('Antalya'), true);
+kontrol('Not özeti göndereni içeriyor', ozet.includes('Yaşar'), true);
+
+kontrol('SSE: metin parçası çözüldü',
+  sseSatiriniCoz('data: {"choices":[{"delta":{"content":"Merhaba"}}]}').metin, 'Merhaba');
+kontrol('SSE: [DONE] tanındı', sseSatiriniCoz('data: [DONE]').tip, 'bitti');
+kontrol('SSE: boş satır yok sayıldı', sseSatiriniCoz('').tip, 'bos');
+kontrol('SSE: bozuk JSON çökertmiyor', sseSatiriniCoz('data: {bozuk').tip, 'bos');
+
+const tamponSonuc = sseTamponuIsle('', 'data: {"choices":[{"delta":{"content":"A"}}]}\ndata: {"cho');
+kontrol('SSE: tam satır işlendi', tamponSonuc.olaylar.length, 1);
+kontrol('SSE: yarım satır tamponda kaldı', tamponSonuc.kalan.startsWith('data: {"cho'), true);
+
+// ==============================================================================
 bolum('ZIP (YEDEK ARŞİVİ)');
 // ==============================================================================
 const entries = [
