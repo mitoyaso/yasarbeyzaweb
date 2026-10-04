@@ -2,10 +2,10 @@
 // UYGULAMA SABİTLERİ VE GÜVENLİK AYARLARI
 // ==============================================================================
 
-// Giriş Bilgileri
+// Giriş Bilgileri (.env dosyasından okunur)
 export const AUTH_CREDENTIALS = {
-  KULLANICI_ADI: 'yasarbeyza',
-  SIFRE: 'yasarbeyza29082026',
+  KULLANICI_ADI: import.meta.env.VITE_AUTH_USERNAME || '',
+  SIFRE: import.meta.env.VITE_AUTH_PASSWORD || '',
 };
 
 // Yerel Depolama Anahtarları (LocalStorage)

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { AUTH_CREDENTIALS } from '../lib/constants';
 import { triggerHeartConfetti } from '../lib/utils';
-import { Heart, Lock, User, Eye, EyeOff, Sparkles } from 'lucide-react';
+import { Heart, Lock, User, Eye, EyeOff } from 'lucide-react';
 
 export default function LoginModal({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -30,12 +30,6 @@ export default function LoginModal({ onLoginSuccess }) {
         setIsSubmitting(false);
       }
     }, 400);
-  };
-
-  const handleFillDemo = () => {
-    setUsername(AUTH_CREDENTIALS.KULLANICI_ADI);
-    setPassword(AUTH_CREDENTIALS.SIFRE);
-    setError('');
   };
 
   return (
@@ -83,7 +77,7 @@ export default function LoginModal({ onLoginSuccess }) {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ör: yasarbeyza"
+                placeholder=""
                 required
                 autoComplete="username"
                 className="w-full pl-11 pr-4 py-3.5 glass-input rounded-2xl text-rose-950 placeholder-rose-300 text-sm font-medium focus:ring-2 focus:ring-rose-400/50"
@@ -103,7 +97,7 @@ export default function LoginModal({ onLoginSuccess }) {
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••••••"
+                placeholder=""
                 required
                 autoComplete="current-password"
                 className="w-full pl-11 pr-11 py-3.5 glass-input rounded-2xl text-rose-950 placeholder-rose-300 text-sm font-medium focus:ring-2 focus:ring-rose-400/50"
@@ -134,18 +128,6 @@ export default function LoginModal({ onLoginSuccess }) {
             )}
           </button>
         </form>
-
-        {/* Hızlı Bilgi ve Kolay Doldurma Butonu */}
-        <div className="mt-6 pt-5 border-t border-rose-100 text-center">
-          <button
-            type="button"
-            onClick={handleFillDemo}
-            className="inline-flex items-center gap-1.5 text-xs text-rose-500 hover:text-rose-700 font-medium py-1 px-3 rounded-full hover:bg-rose-50 transition cursor-pointer"
-          >
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Giriş bilgilerini otomatik doldur</span>
-          </button>
-        </div>
       </div>
     </div>
   );

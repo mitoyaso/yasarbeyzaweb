@@ -24,3 +24,9 @@ dist-ssr
 *.sw?
 github_yukle.bat
 
+# Çevre Değişkenleri (Gizli bilgiler)
+.env
+.env.local
+.env.development.local
+.env.production.local
+
