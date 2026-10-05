@@ -20,9 +20,18 @@ export function sseSatiriniCoz(satir) {
 
   try {
     const json = JSON.parse(veri);
-    const parca = json?.choices?.[0]?.delta?.content;
-    if (typeof parca === 'string' && parca.length > 0) {
-      return { tip: 'metin', metin: parca };
+    const delta = json?.choices?.[0]?.delta;
+
+    // Asıl cevap metni
+    if (typeof delta?.content === 'string' && delta.content.length > 0) {
+      return { tip: 'metin', metin: delta.content };
+    }
+
+    // Düşünme modu AÇIKken metin ayrı alanda gelir (reasoning_content).
+    // Bunu "cevap" saymıyoruz ama yok da saymıyoruz: arayüz "düşünüyor"
+    // gösterebilsin ve akış boşa düşmesin.
+    if (typeof delta?.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
+      return { tip: 'dusunce', metin: delta.reasoning_content };
     }
   } catch {
     // Bozuk/yarım JSON → yok sayılır (akış devam eder)

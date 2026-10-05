@@ -38,9 +38,29 @@ const SAGLAYICILAR = {
 const SINIRLAR = {
   enFazlaMesaj: 24, // son kaç konuşma mesajı gönderilir
   enFazlaKarakter: 120000, // toplam istek boyutu üst sınırı
-  enFazlaCikti: 800, // üretilecek en fazla token
+  enFazlaCikti: 1200, // üretilecek en fazla token
   enFazlaProfil: 60000, // profil üst sınırı
 };
+
+/**
+ * Sağlayıcıya gönderilecek istek gövdesini kurar (SAF — test edilebilir).
+ *
+ * ÖNEMLİ: `thinking: { type: 'disabled' }`
+ * DeepSeek'te düşünme modu VARSAYILAN OLARAK AÇIKTIR ve düşünme metni
+ * `reasoning_content` alanında gelir. O metin ekrana basılmadığı için sohbet
+ * "Eros cevap vermiyor, üç nokta kalıyor" gibi görünür. Sohbet arkadaşı için
+ * düşünme modunu kapatıyoruz: hem hızlı hem ucuz, cevap anında görünür.
+ */
+export function erosIstekGovdesi({ model, sistem = '', mesajlar = [] }) {
+  return {
+    model,
+    messages: [{ role: 'system', content: sistem }, ...mesajlar],
+    temperature: 0.8,
+    max_tokens: SINIRLAR.enFazlaCikti,
+    stream: true,
+    thinking: { type: 'disabled' },
+  };
+}
 
 function supabaseBilgisi() {
   return {
@@ -148,13 +168,11 @@ export default async function handler(req, res) {
     return;
   }
 
-  const istekGovdesi = {
+  const istekGovdesi = erosIstekGovdesi({
     model: process.env.EROS_MODEL || saglayici.model,
-    messages: [{ role: 'system', content: sistem }, ...mesajlar],
-    temperature: 0.8,
-    max_tokens: SINIRLAR.enFazlaCikti,
-    stream: true,
-  };
+    sistem,
+    mesajlar,
+  });
 
   // 4) Sağlayıcıya bağlan ve cevabı olduğu gibi tarayıcıya akıt
   let cevap;

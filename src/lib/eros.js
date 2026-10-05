@@ -127,21 +127,34 @@ export async function erosaSor({
     tarih: new Date().toISOString().slice(0, 10),
   });
 
-  const cevap = await fetch('/api/eros', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${jeton}`,
-    },
-    body: JSON.stringify({
-      sistem,
-      mesajlar: gecmis.map((mesaj) => ({
-        rol: mesaj.rol === 'eros' ? 'assistant' : 'user',
-        icerik: mesaj.icerik,
-      })),
-    }),
-    signal,
-  });
+  // Güvenlik ağı: hiçbir durumda sonsuza kadar "yazıyor..." kalmasın
+  const zamanAsimiDenetleyici = new AbortController();
+  const zamanAsimi = setTimeout(() => zamanAsimiDenetleyici.abort(), 70000);
+
+  let cevap;
+  try {
+    cevap = await fetch('/api/eros', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jeton}`,
+      },
+      body: JSON.stringify({
+        sistem,
+        mesajlar: gecmis.map((mesaj) => ({
+          rol: mesaj.rol === 'eros' ? 'assistant' : 'user',
+          icerik: mesaj.icerik,
+        })),
+      }),
+      signal: signal || zamanAsimiDenetleyici.signal,
+    });
+  } catch (hata) {
+    clearTimeout(zamanAsimi);
+    if (hata?.name === 'AbortError') {
+      throw new Error('Eros uzun süre cevap vermedi. Lütfen tekrar dene.');
+    }
+    throw new Error('Eros bağlantısı kurulamadı: ' + (hata?.message || 'bilinmeyen hata'));
+  }
 
   if (!cevap.ok) {
     let aciklama = `Eros şu an cevap veremedi (${cevap.status}).`;
@@ -162,8 +175,9 @@ export async function erosaSor({
   const cozucu = new TextDecoder();
   let tampon = '';
   let tamMetin = '';
+  let dusunceUzunlugu = 0;
 
-  for (;;) {
+  inceleme: for (;;) {
     const { value, done } = await okuyucu.read();
     if (done) break;
 
@@ -174,10 +188,23 @@ export async function erosaSor({
       if (olay.tip === 'metin') {
         tamMetin += olay.metin;
         if (onParca) onParca(olay.metin);
+      } else if (olay.tip === 'dusunce') {
+        // Model düşünüyor: cevap değil ama boşa da düşmesin
+        dusunceUzunlugu += olay.metin.length;
       } else if (olay.tip === 'bitti') {
-        return tamMetin;
+        break inceleme;
       }
     }
+  }
+
+  clearTimeout(zamanAsimi);
+
+  // Yalnızca "düşünme" gelip cevap hiç gelmediyse kullanıcıyı bilgilendir
+  if (!tamMetin.trim() && dusunceUzunlugu > 0) {
+    throw new Error(
+      'Eros yanıt üretemeden düşünme sınırına takıldı. Tekrar dener misin? ' +
+        '(Sorun sürerse bana bildir: düşünme modu kapatılmalı.)'
+    );
   }
 
   return tamMetin;

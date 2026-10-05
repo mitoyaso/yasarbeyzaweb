@@ -19,10 +19,17 @@ import { X, Send, Loader2, Sparkles, Trash2, HeartHandshake } from 'lucide-react
 
 const ONERILER = [
   'Bize güzel bir sürpriz fikri ver 💡',
-  'Bugün biraz gergindik, ne yapmalıyız?',
-  'Bizi ne kadar tanıyorsun?',
+  'Bugün biraz gergindik, ne yapmalıyız?',  'Bizi ne kadar tanıyorsun?',
   'Bu hafta sonu ne yapabiliriz?',
 ];
+
+/**
+ * Bir sözü belirli süre içinde sonuçlanmaya zorlar.
+ * Amaç: takılı kalan bir kayıt isteği sohbeti kilitlemesin.
+ */
+function zamanAsimiIle(soz, ms = 8000) {
+  return Promise.race([soz, new Promise((resolve) => setTimeout(() => resolve(null), ms))]);
+}
 
 /**
  * Eros — çiftin ilişkisini tanıyan yapay zekâ danışman.
@@ -180,12 +187,14 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
     try {
       // 1) Kullanıcı mesajını kaydet
       if (sohbetHazir) {
-        const kayit = await sohbetMesajiEkle({
-          oda: anahtar,
-          gonderen: yazan,
-          rol: 'kullanici',
-          icerik: temiz,
-        });
+        const kayit = await zamanAsimiIle(
+          sohbetMesajiEkle({
+            oda: anahtar,
+            gonderen: yazan,
+            rol: 'kullanici',
+            icerik: temiz,
+          })
+        );
 
         if (kayit?.id) {
           setMesajlar((oncekiler) =>
@@ -209,12 +218,14 @@ export default function ErosChat({ photos = [], notes = [], yazan, showToast, on
 
       // 3) Cevabı kaydet
       if (sohbetHazir) {
-        const kayit = await sohbetMesajiEkle({
-          oda: anahtar,
-          gonderen: 'Eros',
-          rol: 'eros',
-          icerik: erosMesaji.icerik,
-        });
+        const kayit = await zamanAsimiIle(
+          sohbetMesajiEkle({
+            oda: anahtar,
+            gonderen: 'Eros',
+            rol: 'eros',
+            icerik: erosMesaji.icerik,
+          })
+        );
         if (kayit?.id) erosMesaji.id = kayit.id;
 
         setMesajlar((oncekiler) => [...oncekiler, erosMesaji]);
