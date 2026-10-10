@@ -98,6 +98,29 @@ export default function QuizModal({ sender, onClose }) {
     }));
   };
 
+  const renderChoices = (field, label) => (
+    <div role="group" aria-label={label} className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      {currentQuestion.options.map((option) => {
+        const selected = current[field] === option;
+        return (
+          <button
+            key={option}
+            type="button"
+            aria-pressed={selected}
+            onClick={() => updateField(field, option)}
+            className={`min-h-11 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition cursor-pointer ${
+              selected
+                ? 'border-rose-500 bg-rose-500 text-white shadow-md shadow-rose-500/20'
+                : 'border-rose-200 bg-white/80 text-rose-800 hover:border-rose-400 hover:bg-rose-50'
+            }`}
+          >
+            {option}
+          </button>
+        );
+      })}
+    </div>
+  );
+
   const persistCurrent = async () => {
     if (!currentQuestion || !current) return true;
 
@@ -221,7 +244,7 @@ export default function QuizModal({ sender, onClose }) {
                 {total} soruda birbirinizi ne kadar tanıyorsunuz?
               </h4>
               <p className="text-xs sm:text-sm text-rose-600/90 leading-relaxed mb-4 max-w-sm mx-auto">
-                Her soruda iki şey yazacaksın: <strong>kendi cevabın</strong> ve{' '}
+                Her soruda iki seçim yapacaksın: <strong>kendi cevabın</strong> ve{' '}
                 <strong>{partner} için tahminin</strong>. Tahminlerin onun cevaplarıyla
                 eşleşirse puan kazanırsın.
               </p>
@@ -331,31 +354,19 @@ export default function QuizModal({ sender, onClose }) {
                 {currentQuestion.text}
               </h4>
 
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div>
                   <label className="block text-[11px] font-bold text-rose-800 uppercase tracking-wider mb-1.5 ml-1">
                     Senin cevabın
                   </label>
-                  <input
-                    type="text"
-                    value={current.self}
-                    onChange={(event) => updateField('self', event.target.value)}
-                    placeholder="Kendi cevabını yaz..."
-                    className="w-full px-3.5 py-3 glass-input rounded-2xl text-rose-950 placeholder-rose-300 text-sm font-medium"
-                  />
+                  {renderChoices('self', 'Kendi cevabın için seçenekler')}
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-rose-800 uppercase tracking-wider mb-1.5 ml-1">
                     {partner} için tahminin
                   </label>
-                  <input
-                    type="text"
-                    value={current.guess}
-                    onChange={(event) => updateField('guess', event.target.value)}
-                    placeholder={`${partner} ne cevap verir?`}
-                    className="w-full px-3.5 py-3 glass-input rounded-2xl text-rose-950 placeholder-rose-300 text-sm font-medium"
-                  />
+                  {renderChoices('guess', `${partner} için tahmin seçenekleri`)}
                 </div>
               </div>
 

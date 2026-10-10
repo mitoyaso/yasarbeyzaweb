@@ -36,7 +36,7 @@ const SORU_HAVUZU = [
     sorular: [
       'En sevdiğim yemek hangisidir?',
       'Tatlı olarak ilk tercihim ne olur?',
-      'En sevdiğim mevsim hangisi ve neden?',
+      'En sevdiğim mevsim hangisidir?',
       'Bir kafede genelde ne sipariş ederim?',
       'Tekrar tekrar izlemekten sıkılmadığım film veya dizi türü nedir?',
       'Müzik açınca en çok hangi tarzı dinlerim?',
@@ -96,6 +96,70 @@ const SORU_HAVUZU = [
   },
 ];
 
+// Her soru için dört hazır seçenek; arayüz ayrıca "Bunların dışında" seçeneğini ekler.
+const CEVAP_SECENEKLERI = {
+  gunluk: [
+    ['Telefonuma bakarım', 'Kahve/çay içerim', 'Biraz daha uyurum', 'Hazırlanmaya başlarım'],
+    ['Uyuyup dinlenirim', 'Film veya dizi izlerim', 'Müzik dinlerim', 'Seninle vakit geçiririm'],
+    ['Telefonla oyalanırım', 'Bir şeyler izlerim', 'Kitap okur veya müzik dinlerim', 'Bir hobiyle uğraşırım'],
+    ['Kahve', 'Çay', 'Su', 'Soğuk içecek'],
+    ['Hızlanıp yetişmeye çalışırım', 'Sana haber veririm', 'Sakin davranırım', 'Panik yaparım'],
+    ['Instagram', 'WhatsApp', 'TikTok', 'YouTube'],
+    ['Sarılmak ve ilgi görmek', 'Konuşup içimi dökmek', 'Biraz yalnız kalmak', 'Sevdiğim bir şeyi yapmak'],
+    ['Telefonuma bakarım', 'Bir şeyler izlerim', 'Müzik veya podcast dinlerim', 'Doğrudan uyurum'],
+    ['Yemek yapmak', 'Bulaşık yıkamak', 'Evi toplamak/temizlik', 'Çamaşırla ilgilenmek'],
+    ['Önceden planlı bir gün', 'Spontane bir gün', 'Duruma göre ikisi', 'Fark etmez'],
+  ],
+  favoriler: [
+    ['Pizza', 'Makarna', 'Mantı', 'Kebap/döner'],
+    ['Çikolatalı tatlı', 'Sütlü tatlı', 'Baklava/şerbetli tatlı', 'Dondurma'],
+    ['İlkbahar', 'Yaz', 'Sonbahar', 'Kış'],
+    ['Kahve', 'Çay', 'Soğuk kahve/limonata', 'Tatlı'],
+    ['Komedi', 'Romantik', 'Aksiyon/macera', 'Bilim kurgu/fantastik'],
+    ['Pop', 'Rap', 'Rock', 'Slow/akustik'],
+    ['Pembe', 'Mavi', 'Siyah', 'Yeşil'],
+    ['Birlikte geçirilen zaman', 'Düşünülmüş kişisel bir hediye', 'Çiçek', 'Tatlı/romantik bir sürpriz'],
+    ['Pizza', 'Burger', 'Döner', 'Makarna'],
+    ['Çikolata', 'Cips', 'Kuruyemiş', 'Meyve'],
+  ],
+  biz: [
+    ['Yolculukta yaşanan bir aksilik', 'İlk buluşmadaki heyecan', 'Komik bir söz/lakap', 'Ters giden bir plana gülmemiz'],
+    ['Gülüşün', 'Konuşma tarzın', 'Giyimin/tarzın', 'Heyecanın/tavrın'],
+    ['İlk buluşmamız', 'Birlikte çıktığımız gezi', 'Özel bir günümüz', 'Sıradan ama güzel bir gün'],
+    ['Film/dizi izlemek', 'Birlikte gezmek', 'Yemek/kahve yapmak', 'Oyun oynamak'],
+    ['Kafe/restoran', 'Sahil', 'Doğa/park', 'Şehir gezisi'],
+    ['Sarılmak', 'Güzel sözler söylemek', 'Yardım edip destek olmak', 'Birlikte zaman geçirmek'],
+    ['Günlük mesajlaşmak', 'Birlikte kahve/yemek', 'Akşam sohbeti', 'Yürüyüş yapmak'],
+    ['Bir lakap', 'Komik bir replik', 'Bir yanlış anlaşılma', 'Yaşadığımız komik bir olay'],
+    ['İlk fotoğrafımız', 'Birlikte gittiğimiz gezi', 'Özel bir kutlama', 'Günlük bir an'],
+    ['Bir hedefi tamamlamak', 'Zor bir dönemi birlikte aşmak', 'Bir planı hayata geçirmek', 'Birbirimize destek olmak'],
+  ],
+  hayaller: [
+    ['Paris', 'Roma', 'Japonya', 'Kapadokya'],
+    ['Evde dinlenmek', 'Bir yerlere gezmeye gitmek', 'Film/dizi keyfi yapmak', 'Aile/arkadaşlarla vakit geçirmek'],
+    ['Yabancı dil', 'Bir enstrüman', 'Yemek/pasta yapmak', 'Fotoğrafçılık'],
+    ['Deniz kenarı', 'Doğada bir yer', 'Büyük bir şehir', 'Evde sevdiğim ortam'],
+    ['Kamp yapmak', 'Konser/festivale gitmek', 'Dans etmek', 'Doğa yürüyüşü yapmak'],
+    ['Bahçe/balkon', 'Geniş bir mutfak', 'Kitaplık/kütüphane', 'Sinema/oyun odası'],
+    ['Birlikte tatile çıkmak', 'Yeni bir yer keşfetmek', 'Yeni bir hobiye başlamak', 'Ortak bir hedefi tamamlamak'],
+    ['Deniz kenarı', 'Doğa', 'Şehir', 'Kar tatili'],
+    ['Yeni bir yer görmek', 'Birlikte birikim yapmak', 'Güzel bir alışkanlık edinmek', 'Bir hobi/projeye başlamak'],
+    ['Dinlenmek', 'Yeni yerler keşfetmek', 'Güzel yemekler', 'Seninle vakit geçirmek'],
+  ],
+  eglence: [
+    ['Kart oyunu', 'Kutu oyunu', 'Video oyunu', 'Bilgi yarışması'],
+    ['Absürt mizah', 'Komik videolar', 'Taklitler', 'İç şakalarımız'],
+    ['Türkçe pop', '90’lar şarkıları', 'Slow bir şarkı', 'Rap'],
+    ['Bilgi yarışması', 'Video/konsol oyunu', 'Yemek yapma', 'Spor'],
+    ['Fotoğrafçılık', 'Resim/çizim', 'Dans', 'Yemek yapmak'],
+    ['Birlikte yapılacak etkinlik', 'Nereye gideceğimizi bilmemek', 'Hediye', 'Güzel bir yemek'],
+    ['Komedi', 'Macera', 'Romantik', 'Aksiyon'],
+    ['Özgürce dolaşmak', 'Birine şaka yapmak', 'Dünyayı izlemek', 'Dinlenmek/uyumak'],
+    ['Sohbet etmek', 'Film/dizi izlemek', 'Gezmek', 'Oyun oynamak'],
+    ['❤️', '😂', '🥹', '✨'],
+  ],
+};
+
 function seedliRastgele(seed) {
   let state = 2166136261;
   for (const karakter of String(seed)) {
@@ -123,10 +187,14 @@ function karistir(liste, rastgele = Math.random) {
 /** Aynı 50 soruyu iki kişinin de aynı sırayla görmesini sağlar. */
 export function createSharedQuizRound() {
   const questions = SORU_HAVUZU.flatMap((category) =>
-    category.sorular.map((text) => ({ text, kategori: category.kategori }))
+    category.sorular.map((text, index) => ({
+      text,
+      kategori: category.kategori,
+      options: [...CEVAP_SECENEKLERI[category.id][index], 'Bunların dışında bir şey'],
+    }))
   );
   return {
-    id: 'havuz-50-v1',
+    id: 'havuz-50-secim-v2',
     created_at: null,
     created_by: null,
     questions: karistir(questions, seedliRastgele('yasar-beyza-50-soru-havuzu-v1')).map(
@@ -134,6 +202,7 @@ export function createSharedQuizRound() {
         id: `q${index + 1}`,
         text: question.text,
         category: question.kategori,
+        options: question.options,
       })
     ),
   };
