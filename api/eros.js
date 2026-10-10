@@ -5,13 +5,14 @@
 // Tarayıcıya asla inmez. Bu adres yalnızca SİTENİZE GİRİŞ YAPMIŞ çiftin
 // isteklerini kabul eder (Supabase oturum jetonu doğrulanır).
 //
-// SAĞLAYICI: deepseek (varsayılan, ücretli ama çok ucuz) veya gemini (ücretsiz
-// katman). İkisi de OpenAI uyumlu olduğu için tek kod yolu kullanılır.
+// SAĞLAYICI: deepseek (varsayılan), gemini veya openai. OpenAI Responses API
+// için ayrı bir gövde biçimi gerekir; anahtar her durumda yalnızca sunucudadır.
 //
 // Gerekli ortam değişkenleri (Vercel → Settings → Environment Variables):
 //   DEEPSEEK_API_KEY   (deepseek için)
 //   GEMINI_API_KEY     (gemini için)
-//   EROS_PROVIDER      'deepseek' | 'gemini'   (varsayılan: deepseek)
+//   OPENAI_API_KEY     (openai için)
+//   EROS_PROVIDER      'deepseek' | 'gemini' | 'openai' (varsayılan: deepseek)
 //   EROS_MODEL         isteğe bağlı model adı
 // ==============================================================================
 
@@ -33,6 +34,11 @@ const SAGLAYICILAR = {
     model: 'gemini-2.5-flash',
     anahtar: () => process.env.GEMINI_API_KEY,
   },
+  openai: {
+    adres: 'https://api.openai.com/v1/responses',
+    model: 'gpt-6-luna',
+    anahtar: () => process.env.OPENAI_API_KEY,
+  },
 };
 
 const SINIRLAR = {
@@ -51,7 +57,20 @@ const SINIRLAR = {
  * "Eros cevap vermiyor, üç nokta kalıyor" gibi görünür. Sohbet arkadaşı için
  * düşünme modunu kapatıyoruz: hem hızlı hem ucuz, cevap anında görünür.
  */
-export function erosIstekGovdesi({ model, sistem = '', mesajlar = [] }) {
+export function erosIstekGovdesi({ provider = 'deepseek', model, sistem = '', mesajlar = [] }) {
+  if (provider === 'openai') {
+    return {
+      model,
+      input: [
+        { role: 'developer', content: sistem },
+        ...mesajlar.map(({ role, content }) => ({ role, content })),
+      ],
+      stream: true,
+      max_output_tokens: SINIRLAR.enFazlaCikti,
+      reasoning: { effort: 'low' },
+    };
+  }
+
   return {
     model,
     messages: [{ role: 'system', content: sistem }, ...mesajlar],
@@ -154,7 +173,18 @@ export default async function handler(req, res) {
   }
 
   // 3) Mesajları hazırla
-  const govde = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+  let govde;
+  try {
+    govde = typeof req.body === 'string' ? JSON.parse(req.body) : req.body || {};
+  } catch {
+    res.status(400).json({ hata: 'İstek gövdesi geçerli JSON değil.' });
+    return;
+  }
+  if (!govde || typeof govde !== 'object' || Array.isArray(govde)) {
+    res.status(400).json({ hata: 'İstek gövdesi geçersiz.' });
+    return;
+  }
+
   const mesajlar = mesajlariHazirla(govde.mesajlar);
   if (!mesajlar) {
     res.status(400).json({ hata: 'Geçerli mesaj bulunamadı.' });
@@ -169,6 +199,7 @@ export default async function handler(req, res) {
   }
 
   const istekGovdesi = erosIstekGovdesi({
+    provider: saglayiciAdi,
     model: process.env.EROS_MODEL || saglayici.model,
     sistem,
     mesajlar,

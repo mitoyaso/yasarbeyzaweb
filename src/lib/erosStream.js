@@ -8,7 +8,7 @@
 /**
  * Tek bir SSE satırını çözer.
  * @param {string} satir
- * @returns {{tip: 'metin'|'bitti'|'bos', metin?: string}}
+ * @returns {{tip: 'metin'|'dusunce'|'bitti'|'hata'|'bos', metin?: string}}
  */
 export function sseSatiriniCoz(satir) {
   const kirpilmis = String(satir || '').trim();
@@ -20,6 +20,16 @@ export function sseSatiriniCoz(satir) {
 
   try {
     const json = JSON.parse(veri);
+
+    // OpenAI Responses API'nin anlamsal SSE olayları
+    if (json?.type === 'response.output_text.delta' && typeof json.delta === 'string') {
+      return { tip: 'metin', metin: json.delta };
+    }
+    if (json?.type === 'response.completed') return { tip: 'bitti' };
+    if (json?.type === 'error' || json?.type === 'response.failed') {
+      return { tip: 'hata', mesaj: json.message || json.error?.message || json.response?.error?.message };
+    }
+
     const delta = json?.choices?.[0]?.delta;
 
     // Asıl cevap metni

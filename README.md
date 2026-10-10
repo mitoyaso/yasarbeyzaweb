@@ -115,6 +115,12 @@ Supabase projenizin **Project Settings → API** bölümünden URL ve Anon Key b
 ```env
 VITE_SUPABASE_URL=https://projeniz.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+# Eros için OpenAI API (anahtar yalnızca sunucuda kalır)
+EROS_PROVIDER=openai
+OPENAI_API_KEY=...
+# İsterseniz EROS_MODEL=gpt-6-luna ile model seçimini sabitleyin.
+# DeepSeek veya Gemini için EROS_PROVIDER ve ilgili sağlayıcı anahtarını değiştirin.
 ```
 
 > Anon key tek başına veriye erişemez: tüm tablolar RLS ile korunur ve yalnızca giriş yapmış kullanıcıya izin verir. Yine de bu dosya `.gitignore` ile korunur ve repoya gönderilmez.
@@ -154,10 +160,19 @@ git push -u origin main
 ### 2. Vercel'e Dağıtım
 1. [vercel.com](https://vercel.com) adresine giriş yapın.
 2. **Add New... → Project** seçeneğine tıklayıp GitHub deponuzu seçin.
-3. **Environment Variables** bölümüne şu iki anahtarı ekleyin:
+3. **Environment Variables** bölümüne şu anahtarları ekleyin:
    - `VITE_SUPABASE_URL`: Supabase Proje URL'niz
    - `VITE_SUPABASE_ANON_KEY`: Supabase Anon Anahtarınız
+   - `EROS_PROVIDER=openai` ve `OPENAI_API_KEY` (varsayılan model `gpt-6-luna`).
+     Anahtar sunucuda kalır, tarayıcıya gönderilmez. Alternatif olarak
+     `EROS_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` veya `EROS_PROVIDER=gemini` +
+     `GEMINI_API_KEY` kullanabilirsiniz.
 4. **Deploy** butonuna basın.
+
+Eros istekleri `/api/eros` üzerinden sunucuya gider. Bu uç nokta giriş yapan ve izin
+listesinde bulunan iki hesabı kabul eder. `EROS_IZINLI_EPOSTALAR` ile izin listesini
+özelleştirebilirsiniz. Yerel Vite sunucusu bu Vercel uç noktasını çalıştırmadığından,
+Eros'un yerelde yanıt vermesi için Vercel uyumlu bir sunucu ve sağlayıcı anahtarı gerekir.
 
 > **Önemli sıralama:** Veritabanını kilitleyen SQL betiği, giriş sistemi canlıya çıktıktan **sonra** çalıştırılmalıdır. Aksi hâlde eski sürüm site bir süre veriye erişemez.
 

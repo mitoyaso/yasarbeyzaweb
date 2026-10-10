@@ -129,7 +129,18 @@ export async function erosaSor({
 
   // Güvenlik ağı: hiçbir durumda sonsuza kadar "yazıyor..." kalmasın
   const zamanAsimiDenetleyici = new AbortController();
-  const zamanAsimi = setTimeout(() => zamanAsimiDenetleyici.abort(), 70000);
+  let zamanAsimiDoldu = false;
+  const zamanAsimi = setTimeout(() => {
+    zamanAsimiDoldu = true;
+    zamanAsimiDenetleyici.abort();
+  }, 70000);
+  const disIptal = () => zamanAsimiDenetleyici.abort(signal?.reason);
+
+  if (signal?.aborted) {
+    disIptal();
+  } else {
+    signal?.addEventListener('abort', disIptal, { once: true });
+  }
 
   let cevap;
   try {
@@ -146,17 +157,28 @@ export async function erosaSor({
           icerik: mesaj.icerik,
         })),
       }),
-      signal: signal || zamanAsimiDenetleyici.signal,
+      signal: zamanAsimiDenetleyici.signal,
     });
   } catch (hata) {
     clearTimeout(zamanAsimi);
+    signal?.removeEventListener('abort', disIptal);
     if (hata?.name === 'AbortError') {
-      throw new Error('Eros uzun süre cevap vermedi. Lütfen tekrar dene.');
+      throw new Error(
+        zamanAsimiDoldu
+          ? 'Eros uzun süre cevap vermedi. Lütfen tekrar dene.'
+          : 'Eros isteği iptal edildi.'
+      );
     }
     throw new Error('Eros bağlantısı kurulamadı: ' + (hata?.message || 'bilinmeyen hata'));
   }
 
+  const zamanlayicilariTemizle = () => {
+    clearTimeout(zamanAsimi);
+    signal?.removeEventListener('abort', disIptal);
+  };
+
   if (!cevap.ok) {
+    zamanlayicilariTemizle();
     let aciklama = `Eros şu an cevap veremedi (${cevap.status}).`;
     try {
       const govde = await cevap.json();
@@ -168,6 +190,7 @@ export async function erosaSor({
   }
 
   if (!cevap.body) {
+    zamanlayicilariTemizle();
     throw new Error('Eros boş cevap döndü.');
   }
 
@@ -177,27 +200,40 @@ export async function erosaSor({
   let tamMetin = '';
   let dusunceUzunlugu = 0;
 
-  inceleme: for (;;) {
-    const { value, done } = await okuyucu.read();
-    if (done) break;
+  try {
+    inceleme: for (;;) {
+      const { value, done } = await okuyucu.read();
+      if (done) break;
 
-    const { kalan, olaylar } = sseTamponuIsle(tampon, cozucu.decode(value, { stream: true }));
-    tampon = kalan;
+      const { kalan, olaylar } = sseTamponuIsle(tampon, cozucu.decode(value, { stream: true }));
+      tampon = kalan;
 
-    for (const olay of olaylar) {
-      if (olay.tip === 'metin') {
-        tamMetin += olay.metin;
-        if (onParca) onParca(olay.metin);
-      } else if (olay.tip === 'dusunce') {
-        // Model düşünüyor: cevap değil ama boşa da düşmesin
-        dusunceUzunlugu += olay.metin.length;
-      } else if (olay.tip === 'bitti') {
-        break inceleme;
+      for (const olay of olaylar) {
+        if (olay.tip === 'metin') {
+          tamMetin += olay.metin;
+          if (onParca) onParca(olay.metin);
+        } else if (olay.tip === 'dusunce') {
+          // Model düşünüyor: cevap değil ama boşa da düşmesin
+          dusunceUzunlugu += olay.metin.length;
+        } else if (olay.tip === 'hata') {
+          throw new Error(olay.mesaj || 'OpenAI yanıt üretirken bir hata oluştu.');
+        } else if (olay.tip === 'bitti') {
+          break inceleme;
+        }
       }
     }
+  } catch (hata) {
+    if (hata?.name === 'AbortError') {
+      throw new Error(
+        zamanAsimiDoldu
+          ? 'Eros uzun süre cevap vermedi. Lütfen tekrar dene.'
+          : 'Eros isteği iptal edildi.'
+      );
+    }
+    throw hata;
+  } finally {
+    zamanlayicilariTemizle();
   }
-
-  clearTimeout(zamanAsimi);
 
   // Yalnızca "düşünme" gelip cevap hiç gelmediyse kullanıcıyı bilgilendir
   if (!tamMetin.trim() && dusunceUzunlugu > 0) {
