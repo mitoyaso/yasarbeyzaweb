@@ -131,13 +131,17 @@ export async function generateQuizQuestions({
   previousQuestions = [],
   onStage = () => {},
 } = {}) {
-  const session = await getCurrentSession();
-  if (!session?.access_token) throw new Error('Soru üretmek için önce siteye giriş yapmalısın.');
-
   const controller = new AbortController();
   let timeout;
+  let timedOut = false;
 
   const request = async () => {
+    // getSession may wait on Supabase's auth lock (for example while a token
+    // refresh is in flight), so include it in both the progress and timeout.
+    onStage('Oturum kontrol ediliyor…');
+    const session = await getCurrentSession();
+    if (!session?.access_token) throw new Error('Soru üretmek için önce siteye giriş yapmalısın.');
+
     onStage('Eros’a bağlanılıyor…');
     const response = await fetch('/api/eros', {
       method: 'POST',
@@ -180,13 +184,17 @@ export async function generateQuizQuestions({
   try {
     const timeoutPromise = new Promise((_, reject) => {
       timeout = setTimeout(() => {
+        timedOut = true;
         controller.abort();
-        reject(new Error('Eros 45 saniye içinde soru üretemedi. Yeniden dene veya Vercel günlüklerini kontrol et.'));
+        reject(new Error('Oturum kontrolü veya Eros 45 saniye içinde tamamlanmadı. Sayfayı yenileyip tekrar dene.'));
       }, 45000);
     });
 
     return await Promise.race([request(), timeoutPromise]);
   } catch (error) {
+    if (timedOut) {
+      throw new Error('Oturum kontrolü veya Eros 45 saniye içinde tamamlanmadı. Sayfayı yenileyip tekrar dene.');
+    }
     if (error?.name === 'AbortError') {
       throw new Error('Soru üretimi uzun sürdü. Biraz bekleyip yeniden dene.');
     }
