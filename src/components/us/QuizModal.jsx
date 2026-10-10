@@ -23,15 +23,45 @@ import {
 
 const INTRO_STEP = 0;
 
+function readQuizSession(key, total) {
+  if (typeof window === 'undefined') return { step: null, answers: {} };
+  try {
+    const stored = JSON.parse(window.localStorage.getItem(key) || '{}');
+    const step = Number.isInteger(stored.step) && stored.step >= 0 && stored.step <= total + 1
+      ? stored.step
+      : null;
+    return {
+      step,
+      answers: stored.answers && typeof stored.answers === 'object' ? stored.answers : {},
+    };
+  } catch {
+    return { step: null, answers: {} };
+  }
+}
+
+function writeQuizSession(key, session) {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(session));
+  } catch (err) {
+    console.warn('Test ilerlemesi bu tarayıcıda saklanamadı:', err);
+  }
+}
+
 export default function QuizModal({ sender, onClose }) {
   const partner = sender === 'Yaşar' ? 'Beyza' : 'Yaşar';
   const dialogRef = useModalA11y({ onClose });
 
-  const [step, setStep] = useState(INTRO_STEP);
-  const [answers, setAnswers] = useState({});
+  const [questionRound] = useState(() => createSharedQuizRound());
+  const total = questionRound.questions.length;
+  const sessionKey = `quiz-session:${questionRound.id}:${sender}`;
+  const [initialSession] = useState(() => readQuizSession(sessionKey, total));
+  const [step, setStep] = useState(() => initialSession.step ?? INTRO_STEP);
+  const [answers, setAnswers] = useState(() => initialSession.answers);
   const [allAnswers, setAllAnswers] = useState([]);
   const answersTouched = useRef(false);
-  const [questionRound] = useState(() => createSharedQuizRound());
+  const progressTouched = useRef(initialSession.step !== null);
+  const saveQueue = useRef(Promise.resolve());
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -42,24 +72,44 @@ export default function QuizModal({ sender, onClose }) {
     })),
     [questionRound]
   );
-  const total = questions.length;
   const resultsStep = total + 1;
 
   // Gelen cevapları bu turdaki sorulara uygula.
-  const applyRows = useCallback((rows, activeQuestions) => {
-    setAllAnswers(rows);
-
+  const applyRows = useCallback((rows, activeQuestions, localAnswers = {}) => {
+    const answersByKey = new Map(
+      rows.map((row) => [`${row.question_key}|${row.sender}`, row])
+    );
     const mine = {};
     for (const question of activeQuestions) {
+      const local = localAnswers[question.id] ?? {};
+      const selfQuestionKey = selfKey(question.id);
+      const guessQuestionKey = guessKey(question.id);
+      const savedSelf = answersByKey.get(`${selfQuestionKey}|${sender}`)?.answer ?? '';
+      const savedGuess = answersByKey.get(`${guessQuestionKey}|${sender}`)?.answer ?? '';
+      const self = local.self || savedSelf;
+      const guess = local.guess || savedGuess;
+
+      if (self) {
+        answersByKey.set(`${selfQuestionKey}|${sender}`, {
+          question_key: selfQuestionKey,
+          sender,
+          answer: self,
+        });
+      }
+      if (guess) {
+        answersByKey.set(`${guessQuestionKey}|${sender}`, {
+          question_key: guessQuestionKey,
+          sender,
+          answer: guess,
+        });
+      }
       mine[question.id] = {
-        self:
-          rows.find((r) => r.question_key === selfKey(question.id) && r.sender === sender)
-            ?.answer ?? '',
-        guess:
-          rows.find((r) => r.question_key === guessKey(question.id) && r.sender === sender)
-            ?.answer ?? '',
+        self,
+        guess,
       };
     }
+    const hydratedRows = Array.from(answersByKey.values());
+    setAllAnswers(hydratedRows);
     setAnswers(mine);
   }, [sender]);
 
@@ -71,7 +121,39 @@ export default function QuizModal({ sender, onClose }) {
       .then((rows) => {
         if (!cancelled) {
           if (answersTouched.current) setAllAnswers(rows);
-          else applyRows(rows, questions);
+          else {
+            const localSession = readQuizSession(sessionKey, total);
+            applyRows(rows, questions, localSession.answers);
+
+            if (!progressTouched.current) {
+              const answerMap = new Map(
+                rows
+                  .filter((row) => row.sender === sender)
+                  .map((row) => [row.question_key, String(row.answer ?? '').trim()])
+              );
+              const lastTouchedIndex = questions.reduce((lastIndex, question, index) => {
+                const hasAnswer = Boolean(
+                  answerMap.get(selfKey(question.id)) || answerMap.get(guessKey(question.id))
+                );
+                return hasAnswer ? index : lastIndex;
+              }, -1);
+
+              if (lastTouchedIndex >= 0) {
+                const lastQuestion = questions[lastTouchedIndex];
+                const isComplete = Boolean(
+                  answerMap.get(selfKey(lastQuestion.id)) &&
+                  answerMap.get(guessKey(lastQuestion.id))
+                );
+                const resumeStep = Math.min(
+                  total + 1,
+                  lastTouchedIndex + (isComplete ? 2 : 1)
+                );
+                progressTouched.current = true;
+                setStep(resumeStep);
+                writeQuizSession(sessionKey, { step: resumeStep, answers: localSession.answers });
+              }
+            }
+          }
         }
       })
       .catch((err) => {
@@ -82,7 +164,7 @@ export default function QuizModal({ sender, onClose }) {
     return () => {
       cancelled = true;
     };
-  }, [applyRows, questions]);
+  }, [applyRows, questions, sender, sessionKey, total]);
 
   const score = useMemo(() => computeQuizScore(allAnswers, questions), [allAnswers, questions]);
 
@@ -92,10 +174,40 @@ export default function QuizModal({ sender, onClose }) {
   const updateField = (field, value) => {
     if (!currentQuestion) return;
     answersTouched.current = true;
-    setAnswers((prev) => ({
-      ...prev,
-      [currentQuestion.id]: { ...(prev[currentQuestion.id] ?? { self: '', guess: '' }), [field]: value },
-    }));
+    const nextQuestionAnswers = { ...(answers[currentQuestion.id] ?? { self: '', guess: '' }), [field]: value };
+    const nextAnswers = {
+      ...answers,
+      [currentQuestion.id]: nextQuestionAnswers,
+    };
+    setAnswers(nextAnswers);
+    progressTouched.current = true;
+    writeQuizSession(sessionKey, { step, answers: nextAnswers });
+    setError('');
+
+    const questionKey = field === 'self' ? selfKey(currentQuestion.id) : guessKey(currentQuestion.id);
+    const task = saveQueue.current
+      .catch(() => undefined)
+      .then(() => saveQuizAnswers([{ question_key: questionKey, sender, answer: value }]));
+    saveQueue.current = task;
+    task.catch((err) => {
+      console.error(err);
+      setError(err.message || 'Cevap otomatik kaydedilemedi; sonraki soruya geçince tekrar denenecek.');
+    });
+  };
+
+  const rememberStep = (nextStep) => {
+    setStep(nextStep);
+    progressTouched.current = true;
+    const session = readQuizSession(sessionKey, total);
+    writeQuizSession(sessionKey, { ...session, step: nextStep });
+  };
+
+  const queueSave = (rows) => {
+    const task = saveQueue.current
+      .catch(() => undefined)
+      .then(() => saveQuizAnswers(rows));
+    saveQueue.current = task;
+    return task;
   };
 
   const renderChoices = (field, label) => (
@@ -135,7 +247,7 @@ export default function QuizModal({ sender, onClose }) {
 
     setIsSaving(true);
     try {
-      await saveQuizAnswers(rows);
+      await queueSave(rows);
       setAllAnswers((previous) => {
         const answersByKey = new Map(
           previous.map((row) => [`${row.question_key}|${row.sender}`, row])
@@ -159,17 +271,19 @@ export default function QuizModal({ sender, onClose }) {
     const next = step + 1;
     if (next === resultsStep) {
       try {
-        setAllAnswers(await fetchQuizAnswers());
+        const latestRows = await fetchQuizAnswers();
+        const localSession = readQuizSession(sessionKey, total);
+        applyRows(latestRows, questions, localSession.answers);
       } catch (err) {
         console.error(err);
         setError(err.message || 'Sonuçlar güncellenemedi.');
       }
     }
-    setStep(next);
+    rememberStep(next);
     if (next === resultsStep) triggerHeartConfetti();
   };
 
-  const goBack = () => setStep((value) => Math.max(INTRO_STEP, value - 1));
+  const goBack = () => rememberStep(Math.max(INTRO_STEP, step - 1));
 
   const benimPuanim = sender === 'Yaşar' ? score.yasarScore : score.beyzaScore;
   const onunPuani = sender === 'Yaşar' ? score.beyzaScore : score.yasarScore;
@@ -266,7 +380,7 @@ export default function QuizModal({ sender, onClose }) {
 
               <button
                 type="button"
-                onClick={() => setStep(1)}
+                onClick={() => rememberStep(1)}
                 className="py-3 px-6 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold text-sm shadow-lg shadow-rose-500/25 hover:from-rose-600 hover:to-pink-600 transition inline-flex items-center gap-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
@@ -328,7 +442,7 @@ export default function QuizModal({ sender, onClose }) {
               <div className="flex gap-2 mt-4">
                 <button
                   type="button"
-                  onClick={() => setStep(1)}
+                  onClick={() => rememberStep(1)}
                   className="flex-1 py-2.5 rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50 transition cursor-pointer"
                 >
                   Cevapları Düzenle
@@ -398,7 +512,7 @@ export default function QuizModal({ sender, onClose }) {
               </div>
 
               <p className="text-[10px] text-rose-400 text-center mt-3">
-                Cevapların otomatik kaydedilir; ara verip sonra devam edebilirsin.
+                Seçimlerin hemen kaydedilir; testi kapatıp daha sonra buradan devam edebilirsin.
               </p>
             </div>
           )}

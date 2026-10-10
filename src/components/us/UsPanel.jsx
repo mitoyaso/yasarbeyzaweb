@@ -714,6 +714,7 @@ export default function UsPanel({
 
       {isQuizOpen && (
         <QuizModal
+          key={activeSender}
           sender={activeSender}
           onClose={() => {
             setIsQuizOpen(false);
