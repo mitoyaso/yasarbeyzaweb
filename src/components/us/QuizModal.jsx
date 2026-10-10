@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   QUIZ_QUESTIONS,
+  createQuizRound,
   selfKey,
   guessKey,
   computeQuizScore,
@@ -10,7 +11,6 @@ import {
   fetchQuizAnswers,
   saveQuizAnswers,
 } from '../../lib/quiz';
-import { generateQuizQuestions } from '../../lib/quizGeneration';
 import { useModalA11y } from '../../lib/useModalA11y';
 import { triggerHeartConfetti } from '../../lib/utils';
 import {
@@ -27,7 +27,7 @@ import {
 
 const INTRO_STEP = 0;
 
-export default function QuizModal({ sender, onClose, photos = [], notes = [] }) {
+export default function QuizModal({ sender, onClose }) {
   const partner = sender === 'Yaşar' ? 'Beyza' : 'Yaşar';
   const dialogRef = useModalA11y({ onClose });
 
@@ -56,7 +56,7 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
   const resultsStep = total + 1;
 
   // Gelen cevapları bu turdaki sorulara uygula.
-  const applyRows = useCallback((rows, activeQuestions = questions) => {
+  const applyRows = useCallback((rows, activeQuestions = QUIZ_QUESTIONS) => {
     setAllAnswers(rows);
 
     const mine = {};
@@ -71,7 +71,7 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
       };
     }
     setAnswers(mine);
-  }, [questions, sender]);
+  }, [sender]);
 
   // İlk yükleme: effect içinde senkron setState yapmadan
   useEffect(() => {
@@ -145,17 +145,10 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
     if (isGenerating) return;
     setError('');
     setIsGenerating(true);
-    setGenerationStage('Sorular hazırlanıyor…');
+    setGenerationStage('Sorular havuzdan seçiliyor…');
 
     try {
-      const previousQuestions = questionRound?.questions || QUIZ_QUESTIONS;
-      const generated = await generateQuizQuestions({
-        sender,
-        photos,
-        notes,
-        previousQuestions,
-        onStage: setGenerationStage,
-      });
+      const generated = createQuizRound(questionRound?.questions || []);
       setGenerationStage('Soru turu ikiniz için kaydediliyor…');
       const round = await saveQuizRound({ questions: generated, createdBy: sender });
       const roundQuestions = round.questions.map((question) => ({
@@ -309,19 +302,19 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
                     ) : (
                       <Sparkles className="w-4 h-4" />
                     )}
-                    <span>{isGenerating ? generationStage : 'AI ile yeni soru turu oluştur'}</span>
+                    <span>{isGenerating ? generationStage : 'Rastgele yeni soru turu oluştur'}</span>
                   </button>
                 ) : (
                   <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                    Otomatik soru turları için Supabase veritabanına tek seferlik güncelleme gerekiyor.
+                    Yeni ortak turları kaydetmek için Supabase veritabanı güncellemesi gerekiyor. Mevcut test soruları oynanmaya devam edebilir.
                   </p>
                 )}
                 <p className="text-[10px] text-rose-400 leading-relaxed mt-2">
-                  Sorular ortak fotoğraf açıklamaları ve aşk notlarından ilham alır. Özel Eros sohbetleri gönderilmez.
+                  Sorular uygulamadaki hazır havuzdan, farklı kategorilerden seçilir. Bu oyunda AI veya Eros kullanılmaz.
                 </p>
                 {questionRound && (
                   <p className="text-[10px] text-fuchsia-500 font-semibold mt-2">
-                    Şu an ikiniz için ortak Gemini turu açık.
+                    Şu an ikiniz için ortak soru turu açık.
                   </p>
                 )}
               </div>
@@ -392,6 +385,11 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
           ) : (
             /* SORU ADIMI */
             <div>
+              {currentQuestion.category && (
+                <p className="text-[10px] font-bold uppercase tracking-wider text-fuchsia-500 mb-1.5">
+                  {currentQuestion.category}
+                </p>
+              )}
               <h4 className="text-base sm:text-lg font-bold text-rose-950 font-serif mb-4">
                 {currentQuestion.text}
               </h4>

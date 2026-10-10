@@ -719,8 +719,6 @@ export default function UsPanel({
       {isQuizOpen && (
         <QuizModal
           sender={activeSender}
-          photos={photos}
-          notes={notes}
           onClose={() => {
             setIsQuizOpen(false);
             refreshQuiz();

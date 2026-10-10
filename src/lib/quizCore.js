@@ -26,6 +26,122 @@ export const QUIZ_QUESTIONS = [
   { id: 'q10', text: 'Bir günümüz olsa ne yapardık?' },
 ];
 
+const SORU_HAVUZU = [
+  {
+    id: 'gunluk',
+    kategori: 'Günlük hayat',
+    sorular: [
+      'Sabah uyanınca ilk ne yaparım?',
+      'Yorucu bir günün sonunda en çok nasıl dinlenmeyi severim?',
+      'Evde boş bir saatim olsa ne yapmayı seçerim?',
+      'Gün içinde en sık içtiğim şey nedir?',
+      'Bir yere geç kalınca genelde nasıl davranırım?',
+      'Telefonumda en çok hangi uygulamayı kullanırım?',
+      'Canım sıkkın olduğunda beni en hızlı ne neşelendirir?',
+      'Uyumadan önce yapmayı alışkanlık hâline getirdiğim şey nedir?',
+      'Ev işlerinden hangisini yapmayı daha çok tercih ederim?',
+      'Planlı bir gün mü, spontane bir gün mü bana daha uygundur?',
+    ],
+  },
+  {
+    id: 'favoriler',
+    kategori: 'Sevdiklerim',
+    sorular: [
+      'En sevdiğim yemek hangisidir?',
+      'Tatlı olarak ilk tercihim ne olur?',
+      'En sevdiğim mevsim hangisi ve neden?',
+      'Bir kafede genelde ne sipariş ederim?',
+      'Tekrar tekrar izlemekten sıkılmadığım film veya dizi türü nedir?',
+      'Müzik açınca en çok hangi tarzı dinlerim?',
+      'En sevdiğim renk hangisidir?',
+      'Hediye olarak en çok ne beni mutlu eder?',
+      'Dışarıdan yemek söylesek ne seçmek isterim?',
+      'En sevdiğim atıştırmalık nedir?',
+    ],
+  },
+  {
+    id: 'biz',
+    kategori: 'Bizim hikâyemiz',
+    sorular: [
+      'Birlikte yaşadığımız en komik an hangisiydi?',
+      'İlk buluşmamızda en çok ne dikkatimi çekmişti?',
+      'Birlikte tekrar yaşamak istediğim gün hangisi?',
+      'İkimizin en iyi anlaştığı ortak aktivite nedir?',
+      'Birlikte gittiğimiz yerlerden hangisini yeniden görmek isterim?',
+      'Bana kendimi en çok sevildiğimi hissettiren küçük şey nedir?',
+      'Birlikte yaptığımız hangi şey günlük rutinimizin parçası olsun isterim?',
+      'İkimizin arasında en çok kullandığımız komik söz veya şaka nedir?',
+      'Bir fotoğrafımıza bakınca en çok hangi anı hatırlarım?',
+      'Birlikte başardığımız ve beni gururlandıran şey nedir?',
+    ],
+  },
+  {
+    id: 'hayaller',
+    kategori: 'Hayaller',
+    sorular: [
+      'Birlikte gitmeyi en çok istediğim şehir veya ülke neresi?',
+      'Mükemmel hafta sonumu nasıl geçirirdim?',
+      'Öğrenmek istediğim yeni bir beceri var mı, ne?',
+      'Bir günlüğüne istediğim yerde olabilsem nerede olurdum?',
+      'Birlikte denemek istediğim yeni aktivite nedir?',
+      'Hayalimdeki evde mutlaka olmasını istediğim şey nedir?',
+      'Önümüzdeki yıl yapmak için en çok heyecanlandığım şey nedir?',
+      'Uzun bir tatilde deniz kenarını mı, doğayı mı, şehri mi seçerim?',
+      'Birlikte gerçekleştirmek istediğim küçük bir hedef nedir?',
+      'Bana göre güzel bir tatilin en önemli kısmı nedir?',
+    ],
+  },
+  {
+    id: 'eglence',
+    kategori: 'Eğlence',
+    sorular: [
+      'Bir oyun gecesinde hangi oyunu seçerim?',
+      'Beni kahkahaya boğan şeyler genelde nasıl şeylerdir?',
+      'Karaokede söylemeye cesaret edebileceğim şarkı hangisi olurdu?',
+      'Birlikte yarışmaya girsek hangi konuda iddialı olurum?',
+      'Hiç düşünmeden bir günlüğüne hangi hobiye başlardım?',
+      'Bir sürpriz planında beni en çok ne heyecanlandırır?',
+      'Komedi filmi mi, macera filmi mi seçerim?',
+      'Bir günlüğüne görünmez olsam ilk ne yapardım?',
+      'Birlikte yaparken zamanın nasıl geçtiğini anlamadığım şey nedir?',
+      'Beni anlatan bir emoji seçsem hangisi olurdu?',
+    ],
+  },
+];
+
+function karistir(liste) {
+  const sonuc = [...liste];
+  for (let i = sonuc.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [sonuc[i], sonuc[j]] = [sonuc[j], sonuc[i]];
+  }
+  return sonuc;
+}
+
+/** AI/API kullanmadan, her kategoriden iki soru seçerek ortak tur hazırlar. */
+export function createQuizRound(previousQuestions = []) {
+  const oncekiSorular = new Set(
+    previousQuestions.map((question) => normalizeAnswer(question?.text)).filter(Boolean)
+  );
+
+  const secilenler = SORU_HAVUZU.flatMap((kategori) => {
+    const oncekiOlmayanlar = kategori.sorular.filter(
+      (text) => !oncekiSorular.has(normalizeAnswer(text))
+    );
+    const adaylar = oncekiOlmayanlar.length >= 2 ? oncekiOlmayanlar : kategori.sorular;
+
+    return karistir(adaylar)
+      .slice(0, 2)
+      .map((text) => ({ text, kategori: kategori.kategori }));
+  });
+
+  return karistir(secilenler).map((question, index) => ({
+    id: `q${index + 1}`,
+    text: question.text,
+    category: question.kategori,
+  }));
+}
+
 export const SELF_SUFFIX = '#oz';
 export const GUESS_SUFFIX = '#tahmin';
 

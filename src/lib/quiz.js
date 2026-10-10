@@ -14,6 +14,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 export {
   QUIZ_SENDERS,
   QUIZ_QUESTIONS,
+  createQuizRound,
   SELF_SUFFIX,
   GUESS_SUFFIX,
   selfKey,
@@ -77,7 +78,7 @@ export async function isQuizRoundsAvailable() {
   return !error;
 }
 
-/** Yeni AI soru turunu iki kişinin de görebilmesi için Supabase'e kaydeder. */
+/** Yeni ortak soru turunu iki kişinin de görebilmesi için Supabase'e kaydeder. */
 export async function saveQuizRound({ questions, createdBy }) {
   if (!isSupabaseConfigured) throw new Error('Soru turu kaydetmek için Supabase bağlantısı gerekli.');
 
@@ -89,7 +90,7 @@ export async function saveQuizRound({ questions, createdBy }) {
 
   if (error) {
     if (error.code === '42P01' || error.code === 'PGRST205') {
-      throw new Error('AI soru turları için Supabase veritabanı güncellemesi gerekiyor.');
+      throw new Error('Ortak soru turları için Supabase veritabanı güncellemesi gerekiyor.');
     }
     throw new Error('Yeni soru turu kaydedilemedi: ' + error.message);
   }

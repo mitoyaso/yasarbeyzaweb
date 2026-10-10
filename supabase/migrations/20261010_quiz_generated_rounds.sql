@@ -1,7 +1,7 @@
 -- ============================================================================
--- BİRBİRİNİ TANI TESTİ — PAYLAŞILAN AI SORU TURLARI
+-- BİRBİRİNİ TANI TESTİ — PAYLAŞILAN SORU TURLARI
 -- ============================================================================
--- Gemini'nin oluşturduğu soru setini iki kişinin de aynı görmesi için saklar.
+-- Uygulamadaki soru havuzundan seçilen ortak turu iki kişinin de görmesi için saklar.
 -- Cevap anahtarı tutulmaz; puanlama mevcut quiz_answers kayıtlarından yapılır.
 -- Çalıştırma: Supabase → SQL Editor → bu dosyanın içeriğini yapıştır → Run.
 
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS public.quiz_rounds (
     CHECK (jsonb_typeof(questions) = 'array' AND jsonb_array_length(questions) = 10)
 );
 
-COMMENT ON TABLE public.quiz_rounds IS 'Gemini tarafından oluşturulan ortak birbirini tanıma testi turları';
+COMMENT ON TABLE public.quiz_rounds IS 'Hazır soru havuzundan oluşturulan ortak birbirini tanıma testi turları';
 
 CREATE INDEX IF NOT EXISTS idx_quiz_rounds_created_at
   ON public.quiz_rounds (created_at DESC);
