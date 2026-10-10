@@ -116,11 +116,11 @@ Supabase projenizin **Project Settings → API** bölümünden URL ve Anon Key b
 VITE_SUPABASE_URL=https://projeniz.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
-# Eros için OpenAI API (anahtar yalnızca sunucuda kalır)
-EROS_PROVIDER=openai
-OPENAI_API_KEY=...
-# İsterseniz EROS_MODEL=gpt-6-luna ile model seçimini sabitleyin.
-# DeepSeek veya Gemini için EROS_PROVIDER ve ilgili sağlayıcı anahtarını değiştirin.
+# Eros için Gemini API (anahtar yalnızca sunucuda kalır)
+EROS_PROVIDER=gemini
+GEMINI_API_KEY=...
+# Varsayılan model gemini-3.8-flash. OpenAI veya DeepSeek için EROS_PROVIDER
+# ve ilgili sağlayıcı anahtarını değiştirin.
 ```
 
 > Anon key tek başına veriye erişemez: tüm tablolar RLS ile korunur ve yalnızca giriş yapmış kullanıcıya izin verir. Yine de bu dosya `.gitignore` ile korunur ve repoya gönderilmez.
@@ -163,10 +163,10 @@ git push -u origin main
 3. **Environment Variables** bölümüne şu anahtarları ekleyin:
    - `VITE_SUPABASE_URL`: Supabase Proje URL'niz
    - `VITE_SUPABASE_ANON_KEY`: Supabase Anon Anahtarınız
-   - `EROS_PROVIDER=openai` ve `OPENAI_API_KEY` (varsayılan model `gpt-6-luna`).
-     Anahtar sunucuda kalır, tarayıcıya gönderilmez. Alternatif olarak
-     `EROS_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` veya `EROS_PROVIDER=gemini` +
-     `GEMINI_API_KEY` kullanabilirsiniz.
+   - `EROS_PROVIDER=gemini` ve `GEMINI_API_KEY` (varsayılan model
+     `gemini-3.8-flash`). Anahtar sunucuda kalır, tarayıcıya gönderilmez.
+     Alternatif olarak `EROS_PROVIDER=deepseek` + `DEEPSEEK_API_KEY` veya
+     `EROS_PROVIDER=openai` + `OPENAI_API_KEY` kullanabilirsiniz.
 4. **Deploy** butonuna basın.
 
 Eros istekleri `/api/eros` üzerinden sunucuya gider. Bu uç nokta giriş yapan ve izin

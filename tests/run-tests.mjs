@@ -312,7 +312,7 @@ import { erosIstekGovdesi } from '../api/eros.js';
 
 // Düşünme modu KAPALI olmalı: açık olursa cevap "reasoning_content" alanında
 // kalır, ekranda hiçbir şey görünmez ("Eros cevap vermiyor" hatası).
-const govde = erosIstekGovdesi({ model: 'deepseek-flash', sistem: 'S', mesajlar: [] });
+const govde = erosIstekGovdesi({ provider: 'deepseek', model: 'deepseek-flash', sistem: 'S', mesajlar: [] });
 kontrol('Eros isteği: düşünme modu KAPALI', govde.thinking?.type, 'disabled');
 kontrol('Eros isteği: akış açık', govde.stream, true);
 kontrol('Eros isteği: yeterli çıktı hakkı', govde.max_tokens >= 1000, true);

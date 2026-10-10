@@ -5,14 +5,14 @@
 // Tarayıcıya asla inmez. Bu adres yalnızca SİTENİZE GİRİŞ YAPMIŞ çiftin
 // isteklerini kabul eder (Supabase oturum jetonu doğrulanır).
 //
-// SAĞLAYICI: deepseek (varsayılan), gemini veya openai. OpenAI Responses API
+// SAĞLAYICI: gemini (varsayılan), deepseek veya openai. OpenAI Responses API
 // için ayrı bir gövde biçimi gerekir; anahtar her durumda yalnızca sunucudadır.
 //
 // Gerekli ortam değişkenleri (Vercel → Settings → Environment Variables):
 //   DEEPSEEK_API_KEY   (deepseek için)
 //   GEMINI_API_KEY     (gemini için)
 //   OPENAI_API_KEY     (openai için)
-//   EROS_PROVIDER      'deepseek' | 'gemini' | 'openai' (varsayılan: deepseek)
+//   EROS_PROVIDER      'gemini' | 'deepseek' | 'openai' (varsayılan: gemini)
 //   EROS_MODEL         isteğe bağlı model adı
 // ==============================================================================
 
@@ -29,9 +29,9 @@ const SAGLAYICILAR = {
     anahtar: () => process.env.DEEPSEEK_API_KEY,
   },
   gemini: {
-    // Google'ın OpenAI uyumlu uç noktası (ücretsiz katman buradan çalışır)
+    // Google'ın OpenAI uyumlu uç noktası
     adres: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
-    model: 'gemini-2.5-flash',
+    model: 'gemini-3.8-flash',
     anahtar: () => process.env.GEMINI_API_KEY,
   },
   openai: {
@@ -51,13 +51,11 @@ const SINIRLAR = {
 /**
  * Sağlayıcıya gönderilecek istek gövdesini kurar (SAF — test edilebilir).
  *
- * ÖNEMLİ: `thinking: { type: 'disabled' }`
- * DeepSeek'te düşünme modu VARSAYILAN OLARAK AÇIKTIR ve düşünme metni
- * `reasoning_content` alanında gelir. O metin ekrana basılmadığı için sohbet
- * "Eros cevap vermiyor, üç nokta kalıyor" gibi görünür. Sohbet arkadaşı için
- * düşünme modunu kapatıyoruz: hem hızlı hem ucuz, cevap anında görünür.
+ * Gemini düşük reasoning_effort ile çalışır. DeepSeek'te düşünme modu
+ * `thinking: { type: 'disabled' }` ile kapatılır; aksi hâlde düşünme metni
+ * `reasoning_content` alanında kalıp kullanıcıya görünmeyebilir.
  */
-export function erosIstekGovdesi({ provider = 'deepseek', model, sistem = '', mesajlar = [] }) {
+export function erosIstekGovdesi({ provider = 'gemini', model, sistem = '', mesajlar = [] }) {
   if (provider === 'openai') {
     return {
       model,
@@ -71,14 +69,23 @@ export function erosIstekGovdesi({ provider = 'deepseek', model, sistem = '', me
     };
   }
 
-  return {
+  const govde = {
     model,
     messages: [{ role: 'system', content: sistem }, ...mesajlar],
     temperature: 0.8,
     max_tokens: SINIRLAR.enFazlaCikti,
     stream: true,
-    thinking: { type: 'disabled' },
   };
+
+  if (provider === 'gemini') {
+    // Gemini 3.x düşünme seviyesini OpenAI uyumlu reasoning_effort ile alır.
+    govde.reasoning_effort = 'low';
+  } else {
+    // DeepSeek'te kapatılmazsa cevap reasoning_content içinde kalabilir.
+    govde.thinking = { type: 'disabled' };
+  }
+
+  return govde;
 }
 
 function supabaseBilgisi() {
@@ -153,7 +160,7 @@ export default async function handler(req, res) {
   }
 
   // 2) Sağlayıcı ve anahtar hazır mı?
-  const saglayiciAdi = (process.env.EROS_PROVIDER || 'deepseek').toLowerCase();
+  const saglayiciAdi = (process.env.EROS_PROVIDER || 'gemini').toLowerCase();
   const saglayici = SAGLAYICILAR[saglayiciAdi];
 
   if (!saglayici) {
