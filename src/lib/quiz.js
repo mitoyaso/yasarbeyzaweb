@@ -14,8 +14,7 @@ import { supabase, isSupabaseConfigured } from './supabase';
 export {
   QUIZ_SENDERS,
   QUIZ_QUESTIONS,
-  createQuizRound,
-  createDailyQuizRound,
+  createSharedQuizRound,
   SELF_SUFFIX,
   GUESS_SUFFIX,
   selfKey,

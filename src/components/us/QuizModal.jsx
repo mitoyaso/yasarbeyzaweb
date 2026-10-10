@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  createDailyQuizRound,
+  createSharedQuizRound,
   selfKey,
   guessKey,
   computeQuizScore,
@@ -31,7 +31,7 @@ export default function QuizModal({ sender, onClose }) {
   const [answers, setAnswers] = useState({});
   const [allAnswers, setAllAnswers] = useState([]);
   const answersTouched = useRef(false);
-  const [questionRound] = useState(() => createDailyQuizRound());
+  const [questionRound] = useState(() => createSharedQuizRound());
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -99,7 +99,7 @@ export default function QuizModal({ sender, onClose }) {
   };
 
   const persistCurrent = async () => {
-    if (!currentQuestion || !current) return;
+    if (!currentQuestion || !current) return true;
 
     const rows = [];
     if (current.self.trim()) {
@@ -108,24 +108,40 @@ export default function QuizModal({ sender, onClose }) {
     if (current.guess.trim()) {
       rows.push({ question_key: guessKey(currentQuestion.id), sender, answer: current.guess.trim() });
     }
-    if (rows.length === 0) return;
+    if (rows.length === 0) return true;
 
     setIsSaving(true);
     try {
       await saveQuizAnswers(rows);
-      const rows2 = await fetchQuizAnswers();
-      setAllAnswers(rows2);
+      setAllAnswers((previous) => {
+        const answersByKey = new Map(
+          previous.map((row) => [`${row.question_key}|${row.sender}`, row])
+        );
+        rows.forEach((row) => answersByKey.set(`${row.question_key}|${row.sender}`, row));
+        return Array.from(answersByKey.values());
+      });
+      return true;
     } catch (err) {
       console.error(err);
       setError(err.message || 'Cevaplar kaydedilemedi.');
+      return false;
     } finally {
       setIsSaving(false);
     }
   };
 
   const goNext = async () => {
-    if (currentQuestion) await persistCurrent();
+    const saved = currentQuestion ? await persistCurrent() : true;
+    if (!saved) return;
     const next = step + 1;
+    if (next === resultsStep) {
+      try {
+        setAllAnswers(await fetchQuizAnswers());
+      } catch (err) {
+        console.error(err);
+        setError(err.message || 'Sonuçlar güncellenemedi.');
+      }
+    }
     setStep(next);
     if (next === resultsStep) triggerHeartConfetti();
   };
@@ -231,12 +247,12 @@ export default function QuizModal({ sender, onClose }) {
                 className="py-3 px-6 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white font-bold text-sm shadow-lg shadow-rose-500/25 hover:from-rose-600 hover:to-pink-600 transition inline-flex items-center gap-2 cursor-pointer"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>Bugünün Turunu Başlat</span>
+                <span>50 Soruluk Teste Başla</span>
               </button>
 
               <div className="mt-4 border-t border-rose-100 pt-4">
                 <p className="text-[10px] text-rose-400 leading-relaxed">
-                  50 soruluk havuzdan her gün 10 soru seçilir. İkiniz de aynı günlük turu görürsünüz; AI veya Eros kullanılmaz.
+                  Havuzdaki 50 sorunun tamamını cevaplayacaksınız. İkiniz de aynı soruları aynı sırayla görürsünüz; AI veya Eros kullanılmaz.
                 </p>
               </div>
             </div>

@@ -120,69 +120,16 @@ function karistir(liste, rastgele = Math.random) {
   return sonuc;
 }
 
-/** AI/API kullanmadan, her kategoriden iki soru seçerek ortak tur hazırlar. */
-export function createQuizRound(previousQuestions = [], seed = null) {
-  const rastgele = seed === null ? Math.random : seedliRastgele(seed);
-  const oncekiSorular = new Set(
-    previousQuestions.map((question) => normalizeAnswer(question?.text)).filter(Boolean)
+/** Aynı 50 soruyu iki kişinin de aynı sırayla görmesini sağlar. */
+export function createSharedQuizRound() {
+  const questions = SORU_HAVUZU.flatMap((category) =>
+    category.sorular.map((text) => ({ text, kategori: category.kategori }))
   );
-
-  const secilenler = SORU_HAVUZU.flatMap((kategori) => {
-    const oncekiOlmayanlar = kategori.sorular.filter(
-      (text) => !oncekiSorular.has(normalizeAnswer(text))
-    );
-    const adaylar = oncekiOlmayanlar.length >= 2 ? oncekiOlmayanlar : kategori.sorular;
-
-    return karistir(adaylar, rastgele)
-      .slice(0, 2)
-      .map((text) => ({ text, kategori: kategori.kategori }));
-  });
-
-  return karistir(secilenler, rastgele).map((question, index) => ({
-    id: `q${index + 1}`,
-    text: question.text,
-    category: question.kategori,
-  }));
-}
-
-function istanbulTarihAnahtari(date) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: 'Europe/Istanbul',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
-function gunIndeksi(dayKey) {
-  const [year, month, day] = dayKey.split('-').map(Number);
-  const currentDay = Date.UTC(year, month - 1, day);
-  const epochDay = Date.UTC(2020, 0, 1);
-  return Math.floor((currentDay - epochDay) / 86_400_000);
-}
-
-/** Aynı Türkiye gününde aynı 10 soruyu gösterir; beş günde havuzun tamamını kullanır. */
-export function createDailyQuizRound(date = new Date()) {
-  const dayKey = istanbulTarihAnahtari(date);
-  const dayNumber = gunIndeksi(dayKey);
-  const dayInCycle = ((dayNumber % 5) + 5) % 5;
-  const cycleNumber = Math.floor(dayNumber / 5);
-  const chosen = SORU_HAVUZU.flatMap((category) =>
-    karistir(
-      category.sorular,
-      seedliRastgele(`yasar-beyza-havuz-${cycleNumber}-${category.id}`)
-    )
-      .slice(dayInCycle * 2, dayInCycle * 2 + 2)
-      .map((text) => ({ text, kategori: category.kategori }))
-  );
-
   return {
-    id: `gunluk-${dayKey}`,
-    created_at: `${dayKey}T00:00:00.000Z`,
+    id: 'havuz-50-v1',
+    created_at: null,
     created_by: null,
-    questions: karistir(chosen, seedliRastgele(`yasar-beyza-gunluk-${dayKey}`)).map(
+    questions: karistir(questions, seedliRastgele('yasar-beyza-50-soru-havuzu-v1')).map(
       (question, index) => ({
         id: `q${index + 1}`,
         text: question.text,
@@ -192,8 +139,7 @@ export function createDailyQuizRound(date = new Date()) {
   };
 }
 
-// Geriye uyumlu puanlama varsayılanı; oyun arayüzü günlük havuz turunu kullanır.
-export const QUIZ_QUESTIONS = createQuizRound([], 'varsayilan-quiz-turu');
+export const QUIZ_QUESTIONS = createSharedQuizRound().questions;
 
 export const SELF_SUFFIX = '#oz';
 export const GUESS_SUFFIX = '#tahmin';

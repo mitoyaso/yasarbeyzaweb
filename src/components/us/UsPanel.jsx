@@ -4,7 +4,7 @@ import {
   isQuizAvailable,
   fetchQuizAnswers,
   quizProgress,
-  createDailyQuizRound,
+  createSharedQuizRound,
 } from '../../lib/quiz';
 import QuizModal from './QuizModal';
 import MemoryMap from './MemoryMap';
@@ -73,7 +73,7 @@ export default function UsPanel({
   const [quizAvailable, setQuizAvailable] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizRows, setQuizRows] = useState([]);
-  const [quizRound, setQuizRound] = useState(() => createDailyQuizRound());
+  const [quizRound, setQuizRound] = useState(() => createSharedQuizRound());
   const [locationAvailable, setLocationAvailable] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [trashAvailable, setTrashAvailable] = useState(false);
@@ -123,7 +123,7 @@ export default function UsPanel({
     try {
       const rows = await fetchQuizAnswers();
       setQuizRows(rows);
-      setQuizRound(createDailyQuizRound());
+      setQuizRound(createSharedQuizRound());
     } catch (err) {
       console.warn('Quiz cevapları okunamadı:', err);
     }
@@ -139,7 +139,7 @@ export default function UsPanel({
         return fetchQuizAnswers().then((rows) => {
           if (!cancelled) {
             setQuizRows(rows);
-            setQuizRound(createDailyQuizRound());
+            setQuizRound(createSharedQuizRound());
           }
         });
       })
