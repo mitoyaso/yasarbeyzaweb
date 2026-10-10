@@ -214,17 +214,37 @@ export default async function handler(req, res) {
 
   // 4) Sağlayıcıya bağlan ve cevabı olduğu gibi tarayıcıya akıt
   let cevap;
-  try {
-    cevap = await fetch(saglayici.adres, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${anahtar}`,
-      },
-      body: JSON.stringify(istekGovdesi),
-    });
-  } catch (hata) {
-    res.status(502).json({ hata: 'Yapay zekâ servisine ulaşılamadı: ' + hata.message });
+  let baglantiHatasi;
+  const yenidenDenenebilirDurumlar = new Set([408, 429, 500, 502, 503, 504]);
+  const istekSecenekleri = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${anahtar}`,
+    },
+    body: JSON.stringify(istekGovdesi),
+  };
+
+  // Gemini 503 yanıtları geçici kapasite sorunları olabilir. Az sayıda,
+  // artan aralıklı deneme yap; geçerli anahtar/istek hatalarını yineleme.
+  for (let deneme = 0; deneme < 3; deneme += 1) {
+    try {
+      cevap = await fetch(saglayici.adres, istekSecenekleri);
+      baglantiHatasi = null;
+      if (cevap.ok || !yenidenDenenebilirDurumlar.has(cevap.status) || deneme === 2) break;
+      await cevap.body?.cancel().catch(() => {});
+    } catch (hata) {
+      cevap = null;
+      baglantiHatasi = hata;
+      if (deneme === 2) break;
+    }
+
+    const bekleme = 400 * (2 ** deneme) + Math.floor(Math.random() * 250);
+    await new Promise((resolve) => setTimeout(resolve, bekleme));
+  }
+
+  if (!cevap && baglantiHatasi) {
+    res.status(502).json({ hata: 'Yapay zekâ servisine ulaşılamadı: ' + baglantiHatasi.message });
     return;
   }
 
@@ -243,6 +263,8 @@ export default async function handler(req, res) {
           ? 'Bakiye yetersiz görünüyor.'
           : cevap.status === 429
             ? 'Çok hızlı istek gönderildi (ücretsiz katman sınırı olabilir). Biraz bekleyip tekrar dene.'
+          : cevap.status === 503
+            ? 'Gemini servisi şu anda yoğun (503). Otomatik yeniden denemeler sonuç vermedi; biraz sonra tekrar dene.'
             : `Yapay zekâ servisi hata verdi (${cevap.status}).`;
 
     res.status(502).json({ hata: mesaj, ayrinti });
