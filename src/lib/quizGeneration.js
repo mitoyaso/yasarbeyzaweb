@@ -78,11 +78,9 @@ async function akisMetniniOku(response) {
       handleEvents(parsed.olaylar);
     }
   } finally {
-    try {
-      await reader.cancel();
-    } catch {
-      /* Akış zaten kapandı veya iptal edildi. */
-    }
+    // Cancel is best-effort. Awaiting it can itself wait on a proxy stream that
+    // has already emitted [DONE], which would keep the UI spinner alive.
+    reader.cancel().catch(() => {});
     reader.releaseLock();
   }
 
@@ -131,14 +129,16 @@ export async function generateQuizQuestions({
   photos = [],
   notes = [],
   previousQuestions = [],
+  onStage = () => {},
 } = {}) {
   const session = await getCurrentSession();
   if (!session?.access_token) throw new Error('Soru üretmek için önce siteye giriş yapmalısın.');
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 70000);
+  let timeout;
 
-  try {
+  const request = async () => {
+    onStage('Eros’a bağlanılıyor…');
     const response = await fetch('/api/eros', {
       method: 'POST',
       headers: {
@@ -171,9 +171,21 @@ export async function generateQuizQuestions({
       throw new Error(message);
     }
 
+    onStage('Sorular yapay zekâdan alınıyor…');
     const generatedText = await akisMetniniOku(response);
     if (!generatedText.trim()) throw new Error('Gemini boş cevap döndürdü. Lütfen tekrar dene.');
     return jsonSorulariniOku(generatedText);
+  };
+
+  try {
+    const timeoutPromise = new Promise((_, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(new Error('Eros 45 saniye içinde soru üretemedi. Yeniden dene veya Vercel günlüklerini kontrol et.'));
+      }, 45000);
+    });
+
+    return await Promise.race([request(), timeoutPromise]);
   } catch (error) {
     if (error?.name === 'AbortError') {
       throw new Error('Soru üretimi uzun sürdü. Biraz bekleyip yeniden dene.');

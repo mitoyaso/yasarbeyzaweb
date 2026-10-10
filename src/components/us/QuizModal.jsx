@@ -39,6 +39,7 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationStage, setGenerationStage] = useState('');
   const [error, setError] = useState('');
 
   const questions = useMemo(
@@ -144,6 +145,7 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
     if (isGenerating) return;
     setError('');
     setIsGenerating(true);
+    setGenerationStage('Sorular hazırlanıyor…');
 
     try {
       const previousQuestions = questionRound?.questions || QUIZ_QUESTIONS;
@@ -152,7 +154,9 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
         photos,
         notes,
         previousQuestions,
+        onStage: setGenerationStage,
       });
+      setGenerationStage('Soru turu ikiniz için kaydediliyor…');
       const round = await saveQuizRound({ questions: generated, createdBy: sender });
       const roundQuestions = round.questions.map((question) => ({
         ...question,
@@ -160,8 +164,10 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
       }));
 
       setQuestionRound(round);
-      applyRows(await fetchQuizAnswers(), roundQuestions);
+      // Yeni tur benzersiz kimlikler kullandığından eski cevap sorgusuna gerek yok.
+      applyRows(allAnswers, roundQuestions);
       setStep(INTRO_STEP);
+      setGenerationStage('Tur hazır!');
     } catch (err) {
       console.error(err);
       if (err.message?.includes('Supabase veritabanı güncellemesi')) {
@@ -170,6 +176,7 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
       setError(err.message || 'Yeni sorular oluşturulamadı.');
     } finally {
       setIsGenerating(false);
+      setGenerationStage('');
     }
   };
 
@@ -302,7 +309,7 @@ export default function QuizModal({ sender, onClose, photos = [], notes = [] }) 
                     ) : (
                       <Sparkles className="w-4 h-4" />
                     )}
-                    <span>{isGenerating ? 'Sorular hazırlanıyor…' : 'AI ile yeni soru turu oluştur'}</span>
+                    <span>{isGenerating ? generationStage : 'AI ile yeni soru turu oluştur'}</span>
                   </button>
                 ) : (
                   <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
