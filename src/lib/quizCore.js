@@ -53,7 +53,7 @@ export function normalizeAnswer(text) {
  * Cevaplardan puan tablosunu üretir.
  * @param {Array<{question_key: string, sender: string, answer: string}>} answers
  */
-export function computeQuizScore(answers) {
+export function computeQuizScore(answers, questions = QUIZ_QUESTIONS) {
   const map = new Map();
   for (const row of answers || []) {
     if (!row?.question_key || !row?.sender) continue;
@@ -62,7 +62,7 @@ export function computeQuizScore(answers) {
 
   const get = (key, sender) => map.get(`${key}|${sender}`) ?? '';
 
-  const perQuestion = QUIZ_QUESTIONS.map((question) => {
+  const perQuestion = questions.map((question) => {
     const yasarSelf = get(selfKey(question.id), 'Yaşar');
     const beyzaSelf = get(selfKey(question.id), 'Beyza');
     const yasarGuess = get(guessKey(question.id), 'Yaşar');
@@ -89,7 +89,7 @@ export function computeQuizScore(answers) {
 
   return {
     perQuestion,
-    total: QUIZ_QUESTIONS.length,
+    total: questions.length,
     yasarScore: perQuestion.filter((row) => row.yasarDogru).length,
     beyzaScore: perQuestion.filter((row) => row.beyzaDogru).length,
   };
@@ -98,16 +98,16 @@ export function computeQuizScore(answers) {
 /**
  * Bir kişinin kaç soruyu tamamladığı (hem kendi cevabı hem tahmini girilmişse).
  */
-export function quizProgress(answers, sender) {
+export function quizProgress(answers, sender, questions = QUIZ_QUESTIONS) {
   const girilenler = new Set(
     (answers || [])
       .filter((row) => row?.sender === sender && String(row?.answer || '').trim())
       .map((row) => row.question_key)
   );
 
-  const tamamlanan = QUIZ_QUESTIONS.filter(
+  const tamamlanan = questions.filter(
     (question) => girilenler.has(selfKey(question.id)) && girilenler.has(guessKey(question.id))
   ).length;
 
-  return { tamamlanan, toplam: QUIZ_QUESTIONS.length };
+  return { tamamlanan, toplam: questions.length };
 }

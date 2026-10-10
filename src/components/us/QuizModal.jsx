@@ -4,9 +4,13 @@ import {
   selfKey,
   guessKey,
   computeQuizScore,
+  fetchLatestQuizRound,
+  isQuizRoundsAvailable,
+  saveQuizRound,
   fetchQuizAnswers,
   saveQuizAnswers,
 } from '../../lib/quiz';
+import { generateQuizQuestions } from '../../lib/quizGeneration';
 import { useModalA11y } from '../../lib/useModalA11y';
 import { triggerHeartConfetti } from '../../lib/utils';
 import {
@@ -23,48 +27,67 @@ import {
 
 const INTRO_STEP = 0;
 
-export default function QuizModal({ sender, onClose }) {
+export default function QuizModal({ sender, onClose, photos = [], notes = [] }) {
   const partner = sender === 'Yaşar' ? 'Beyza' : 'Yaşar';
   const dialogRef = useModalA11y({ onClose });
 
   const [step, setStep] = useState(INTRO_STEP);
   const [answers, setAnswers] = useState({});
   const [allAnswers, setAllAnswers] = useState([]);
+  const [questionRound, setQuestionRound] = useState(null);
+  const [questionRoundsAvailable, setQuestionRoundsAvailable] = useState(true);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState('');
 
-  const total = QUIZ_QUESTIONS.length;
+  const questions = useMemo(
+    () =>
+      questionRound
+        ? questionRound.questions.map((question) => ({
+            ...question,
+            id: `${questionRound.id}:${question.id}`,
+          }))
+        : QUIZ_QUESTIONS,
+    [questionRound]
+  );
+  const total = questions.length;
   const resultsStep = total + 1;
 
-  // Gelen cevapları forma ve sonuç listesine uygular
-  const applyRows = useCallback(
-    (rows) => {
-      setAllAnswers(rows);
+  // Gelen cevapları bu turdaki sorulara uygula.
+  const applyRows = useCallback((rows, activeQuestions = questions) => {
+    setAllAnswers(rows);
 
-      const mine = {};
-      for (const question of QUIZ_QUESTIONS) {
-        mine[question.id] = {
-          self:
-            rows.find((r) => r.question_key === selfKey(question.id) && r.sender === sender)
-              ?.answer ?? '',
-          guess:
-            rows.find((r) => r.question_key === guessKey(question.id) && r.sender === sender)
-              ?.answer ?? '',
-        };
-      }
-      setAnswers(mine);
-    },
-    [sender]
-  );
+    const mine = {};
+    for (const question of activeQuestions) {
+      mine[question.id] = {
+        self:
+          rows.find((r) => r.question_key === selfKey(question.id) && r.sender === sender)
+            ?.answer ?? '',
+        guess:
+          rows.find((r) => r.question_key === guessKey(question.id) && r.sender === sender)
+            ?.answer ?? '',
+      };
+    }
+    setAnswers(mine);
+  }, [questions, sender]);
 
   // İlk yükleme: effect içinde senkron setState yapmadan
   useEffect(() => {
     let cancelled = false;
 
-    fetchQuizAnswers()
-      .then((rows) => {
-        if (!cancelled) applyRows(rows);
+    Promise.all([fetchQuizAnswers(), fetchLatestQuizRound(), isQuizRoundsAvailable()])
+      .then(([rows, round, roundsAvailable]) => {
+        if (!cancelled) {
+          setQuestionRound(round);
+          setQuestionRoundsAvailable(roundsAvailable);
+          applyRows(
+            rows,
+            round
+              ? round.questions.map((question) => ({ ...question, id: `${round.id}:${question.id}` }))
+              : QUIZ_QUESTIONS
+          );
+        }
       })
       .catch((err) => {
         console.error(err);
@@ -79,9 +102,9 @@ export default function QuizModal({ sender, onClose }) {
     };
   }, [applyRows]);
 
-  const score = useMemo(() => computeQuizScore(allAnswers), [allAnswers]);
+  const score = useMemo(() => computeQuizScore(allAnswers, questions), [allAnswers, questions]);
 
-  const currentQuestion = step >= 1 && step <= total ? QUIZ_QUESTIONS[step - 1] : null;
+  const currentQuestion = step >= 1 && step <= total ? questions[step - 1] : null;
   const current = currentQuestion ? answers[currentQuestion.id] ?? { self: '', guess: '' } : null;
 
   const updateField = (field, value) => {
@@ -114,6 +137,39 @@ export default function QuizModal({ sender, onClose }) {
       setError(err.message || 'Cevaplar kaydedilemedi.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const generateNewRound = async () => {
+    if (isGenerating) return;
+    setError('');
+    setIsGenerating(true);
+
+    try {
+      const previousQuestions = questionRound?.questions || QUIZ_QUESTIONS;
+      const generated = await generateQuizQuestions({
+        sender,
+        photos,
+        notes,
+        previousQuestions,
+      });
+      const round = await saveQuizRound({ questions: generated, createdBy: sender });
+      const roundQuestions = round.questions.map((question) => ({
+        ...question,
+        id: `${round.id}:${question.id}`,
+      }));
+
+      setQuestionRound(round);
+      applyRows(await fetchQuizAnswers(), roundQuestions);
+      setStep(INTRO_STEP);
+    } catch (err) {
+      console.error(err);
+      if (err.message?.includes('Supabase veritabanı güncellemesi')) {
+        setQuestionRoundsAvailable(false);
+      }
+      setError(err.message || 'Yeni sorular oluşturulamadı.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -232,6 +288,36 @@ export default function QuizModal({ sender, onClose }) {
                 <Sparkles className="w-4 h-4" />
                 <span>Teste Başla</span>
               </button>
+
+              <div className="mt-4 border-t border-rose-100 pt-4">
+                {questionRoundsAvailable ? (
+                  <button
+                    type="button"
+                    onClick={generateNewRound}
+                    disabled={isGenerating}
+                    className="w-full py-3 px-4 rounded-2xl bg-white border border-fuchsia-200 text-fuchsia-700 font-bold text-sm hover:bg-fuchsia-50 transition inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                  >
+                    {isGenerating ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Sparkles className="w-4 h-4" />
+                    )}
+                    <span>{isGenerating ? 'Sorular hazırlanıyor…' : 'AI ile yeni soru turu oluştur'}</span>
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
+                    Otomatik soru turları için Supabase veritabanına tek seferlik güncelleme gerekiyor.
+                  </p>
+                )}
+                <p className="text-[10px] text-rose-400 leading-relaxed mt-2">
+                  Sorular ortak fotoğraf açıklamaları ve aşk notlarından ilham alır. Özel Eros sohbetleri gönderilmez.
+                </p>
+                {questionRound && (
+                  <p className="text-[10px] text-fuchsia-500 font-semibold mt-2">
+                    Şu an ikiniz için ortak Gemini turu açık.
+                  </p>
+                )}
+              </div>
             </div>
           ) : step === resultsStep ? (
             /* SONUÇLAR */

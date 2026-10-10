@@ -1,6 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { getCounts, backfillMissingThumbnails, isLocationAvailable, isTrashAvailable, getDeletedPhotos, getDeletedNotes } from '../../lib/supabase';
-import { isQuizAvailable, fetchQuizAnswers, quizProgress } from '../../lib/quiz';
+import {
+  isQuizAvailable,
+  fetchQuizAnswers,
+  fetchLatestQuizRound,
+  quizProgress,
+  QUIZ_QUESTIONS,
+} from '../../lib/quiz';
 import QuizModal from './QuizModal';
 import MemoryMap from './MemoryMap';
 import { trashStats } from '../../lib/trashCore';
@@ -68,6 +74,7 @@ export default function UsPanel({
   const [quizAvailable, setQuizAvailable] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizRows, setQuizRows] = useState([]);
+  const [quizRound, setQuizRound] = useState(null);
   const [locationAvailable, setLocationAvailable] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [trashAvailable, setTrashAvailable] = useState(false);
@@ -115,7 +122,9 @@ export default function UsPanel({
   // (Faz 3 SQL'i çalıştırılmadıysa bölüm tamamen gizli kalır).
   const refreshQuiz = useCallback(async () => {
     try {
-      setQuizRows(await fetchQuizAnswers());
+      const [rows, round] = await Promise.all([fetchQuizAnswers(), fetchLatestQuizRound()]);
+      setQuizRows(rows);
+      setQuizRound(round);
     } catch (err) {
       console.warn('Quiz cevapları okunamadı:', err);
     }
@@ -128,8 +137,11 @@ export default function UsPanel({
       .then((ok) => {
         if (cancelled || !ok) return undefined;
         setQuizAvailable(true);
-        return fetchQuizAnswers().then((rows) => {
-          if (!cancelled) setQuizRows(rows);
+        return Promise.all([fetchQuizAnswers(), fetchLatestQuizRound()]).then(([rows, round]) => {
+          if (!cancelled) {
+            setQuizRows(rows);
+            setQuizRound(round);
+          }
         });
       })
       .catch((err) => console.warn('Quiz kontrolü başarısız:', err));
@@ -198,9 +210,20 @@ export default function UsPanel({
   const achievements = useMemo(() => computeAchievements(stats), [stats]);
   const unlockedCount = achievements.filter((item) => item.unlocked).length;
 
+  const quizQuestions = useMemo(
+    () =>
+      quizRound
+        ? quizRound.questions.map((question) => ({
+            ...question,
+            id: `${quizRound.id}:${question.id}`,
+          }))
+        : QUIZ_QUESTIONS,
+    [quizRound]
+  );
+
   const quizDurum = useMemo(
-    () => quizProgress(quizRows, activeSender),
-    [quizRows, activeSender]
+    () => quizProgress(quizRows, activeSender, quizQuestions),
+    [quizRows, activeSender, quizQuestions]
   );
 
   const backupAge = useMemo(() => {
@@ -696,6 +719,8 @@ export default function UsPanel({
       {isQuizOpen && (
         <QuizModal
           sender={activeSender}
+          photos={photos}
+          notes={notes}
           onClose={() => {
             setIsQuizOpen(false);
             refreshQuiz();
