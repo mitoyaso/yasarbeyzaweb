@@ -4,6 +4,7 @@ import {
   selfKey,
   guessKey,
   computeQuizScore,
+  quizProgress,
   fetchQuizAnswers,
   saveQuizAnswers,
 } from '../../lib/quiz';
@@ -46,6 +47,18 @@ function writeQuizSession(key, session) {
   } catch (err) {
     console.warn('Test ilerlemesi bu tarayıcıda saklanamadı:', err);
   }
+}
+
+function firstIncompleteStep(rows, sender, questions) {
+  const answerKeys = new Set(
+    rows
+      .filter((row) => row?.sender === sender && String(row?.answer ?? '').trim())
+      .map((row) => row.question_key)
+  );
+  const index = questions.findIndex(
+    (question) => !answerKeys.has(selfKey(question.id)) || !answerKeys.has(guessKey(question.id))
+  );
+  return index >= 0 ? index + 1 : 1;
 }
 
 export default function QuizModal({ sender, onClose }) {
@@ -167,9 +180,66 @@ export default function QuizModal({ sender, onClose }) {
   }, [applyRows, questions, sender, sessionKey, total]);
 
   const score = useMemo(() => computeQuizScore(allAnswers, questions), [allAnswers, questions]);
+  const myProgress = useMemo(
+    () => quizProgress(allAnswers, sender, questions),
+    [allAnswers, sender, questions]
+  );
+  const partnerProgress = useMemo(
+    () => quizProgress(allAnswers, partner, questions),
+    [allAnswers, partner, questions]
+  );
+  const partnerGenitive = partner === 'Yaşar' ? "Yaşar'ın" : "Beyza'nın";
+  const winner = score.yasarScore === score.beyzaScore
+    ? null
+    : score.yasarScore > score.beyzaScore
+      ? 'Yaşar'
+      : 'Beyza';
 
   const currentQuestion = step >= 1 && step <= total ? questions[step - 1] : null;
   const current = currentQuestion ? answers[currentQuestion.id] ?? { self: '', guess: '' } : null;
+
+  useEffect(() => {
+    if (
+      step !== resultsStep ||
+      myProgress.tamamlanan < total ||
+      partnerProgress.tamamlanan >= total
+    ) {
+      return undefined;
+    }
+
+    let cancelled = false;
+    let refreshing = false;
+    const interval = window.setInterval(async () => {
+      if (refreshing) return;
+      refreshing = true;
+      try {
+        const rows = await fetchQuizAnswers();
+        if (!cancelled) {
+          const localSession = readQuizSession(sessionKey, total);
+          applyRows(rows, questions, localSession.answers);
+        }
+      } catch (err) {
+        console.warn('Partnerin test ilerlemesi yenilenemedi:', err);
+      } finally {
+        refreshing = false;
+      }
+    }, 5000);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+    };
+  }, [
+    applyRows,
+    myProgress.tamamlanan,
+    partnerProgress.tamamlanan,
+    questions,
+    resultsStep,
+    sender,
+    sessionKey,
+    step,
+    total,
+  ]);
 
   const updateField = (field, value) => {
     if (!currentQuestion) return;
@@ -396,65 +466,130 @@ export default function QuizModal({ sender, onClose }) {
           ) : step === resultsStep ? (
             /* SONUÇLAR */
             <div>
-              <div className="text-center mb-5">
-                <div className="w-14 h-14 rounded-3xl bg-gradient-to-tr from-amber-400 to-rose-500 flex items-center justify-center text-white shadow-lg mx-auto mb-3">
-                  <Trophy className="w-7 h-7" />
-                </div>
-                <h4 className="text-lg font-extrabold text-rose-950 font-serif mb-1">
-                  Sonuçlar
-                </h4>
-                <p className="text-xs text-rose-600/90">
-                  {sender}: <strong>{benimPuanim}/{score.total}</strong> · {partner}:{' '}
-                  <strong>{onunPuani}/{score.total}</strong>
-                </p>
-              </div>
-
-              <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
-                {score.perQuestion.map((row) => (
-                  <div
-                    key={row.id}
-                    className={`rounded-2xl border p-3 ${
-                      row[dogruAlan] ? 'bg-emerald-50/70 border-emerald-200' : 'bg-white/70 border-rose-100'
-                    }`}
-                  >
-                    <div className="flex items-start gap-2">
-                      {row[dogruAlan] ? (
-                        <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
-                      ) : (
-                        <XCircle className="w-4 h-4 text-rose-300 shrink-0 mt-0.5" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-xs font-bold text-rose-950 mb-1">{row.text}</p>
-                        <p className="text-[11px] text-rose-600/90">
-                          <span className="font-semibold">Tahminin:</span>{' '}
-                          {row[benimTahminlerim] || '—'}
-                        </p>
-                        <p className="text-[11px] text-rose-600/90">
-                          <span className="font-semibold">{partner}in cevabı:</span>{' '}
-                          {row[onunKendiCevabi] || 'henüz cevaplamadı'}
-                        </p>
-                      </div>
-                    </div>
+              {myProgress.tamamlanan < total ? (
+                <div className="text-center">
+                  <div className="rounded-2xl border border-amber-200 bg-amber-50 p-4 mb-4">
+                    <h4 className="text-base font-extrabold text-amber-900 mb-1">
+                      Önce kendi sorularını tamamla
+                    </h4>
+                    <p className="text-sm text-amber-800">
+                      Sonuçları görmek için 50 sorunun tamamında hem kendi cevabını hem tahminini seçmelisin.
+                    </p>
+                    <p className="text-xs font-semibold text-amber-700 mt-2">
+                      {sender}: {myProgress.tamamlanan}/{total} soru tamamlandı
+                    </p>
                   </div>
-                ))}
-              </div>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => rememberStep(firstIncompleteStep(allAnswers, sender, questions))}
+                      className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xs font-bold shadow-md transition cursor-pointer"
+                    >
+                      Eksik soruya dön
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="flex-1 py-2.5 rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50 transition cursor-pointer"
+                    >
+                      Kapat
+                    </button>
+                  </div>
+                </div>
+              ) : partnerProgress.tamamlanan < total ? (
+                <div className="text-center">
+                  <div className="rounded-2xl border border-fuchsia-200 bg-fuchsia-50 p-5 mb-4">
+                    <Loader2 className="w-8 h-8 animate-spin text-fuchsia-500 mx-auto mb-3" />
+                    <h4 className="text-base font-extrabold text-rose-950 mb-2">
+                      Sonuçları görmek için {partnerGenitive} 50 sorunun tamamını cevaplamasını bekle.
+                    </h4>
+                    <p className="text-sm text-rose-700">
+                      {partner}: <strong>{partnerProgress.tamamlanan}/{total}</strong> soru tamamlandı.
+                    </p>
+                    <div className="h-2 rounded-full bg-white overflow-hidden mt-3">
+                      <div
+                        className="h-full rounded-full bg-gradient-to-r from-rose-400 to-fuchsia-500 transition-all"
+                        style={{ width: `${(partnerProgress.tamamlanan / total) * 100}%` }}
+                      />
+                    </div>
+                    <p className="text-[11px] text-fuchsia-700 mt-3">
+                      Partnerinin ilerlemesi otomatik kontrol ediliyor.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="w-full py-2.5 rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50 transition cursor-pointer"
+                  >
+                    Kapat
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="text-center mb-5">
+                    <div className="w-14 h-14 rounded-3xl bg-gradient-to-tr from-amber-400 to-rose-500 flex items-center justify-center text-white shadow-lg mx-auto mb-3">
+                      <Trophy className="w-7 h-7" />
+                    </div>
+                    <h4 className="text-lg font-extrabold text-rose-950 font-serif mb-1">
+                      {winner ? `Kazanan: ${winner}!` : 'Berabere!'}
+                    </h4>
+                    <p className="text-xs text-rose-600/90 mb-2">
+                      İkiniz de 50 soruyu tamamladınız.
+                    </p>
+                    <p className="text-sm text-rose-700">
+                      {sender}: <strong>{benimPuanim}/{score.total}</strong> · {partner}:{' '}
+                      <strong>{onunPuani}/{score.total}</strong>
+                    </p>
+                  </div>
 
-              <div className="flex gap-2 mt-4">
-                <button
-                  type="button"
-                  onClick={() => rememberStep(1)}
-                  className="flex-1 py-2.5 rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50 transition cursor-pointer"
-                >
-                  Cevapları Düzenle
-                </button>
-                <button
-                  type="button"
-                  onClick={onClose}
-                  className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xs font-bold shadow-md transition cursor-pointer"
-                >
-                  Kapat
-                </button>
-              </div>
+                  <div className="space-y-2 max-h-[45vh] overflow-y-auto pr-1">
+                    {score.perQuestion.map((row) => (
+                      <div
+                        key={row.id}
+                        className={`rounded-2xl border p-3 ${
+                          row[dogruAlan] ? 'bg-emerald-50/70 border-emerald-200' : 'bg-white/70 border-rose-100'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          {row[dogruAlan] ? (
+                            <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5" />
+                          ) : (
+                            <XCircle className="w-4 h-4 text-rose-300 shrink-0 mt-0.5" />
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-rose-950 mb-1">{row.text}</p>
+                            <p className="text-[11px] text-rose-600/90">
+                              <span className="font-semibold">Tahminin:</span>{' '}
+                              {row[benimTahminlerim] || '—'}
+                            </p>
+                            <p className="text-[11px] text-rose-600/90">
+                              <span className="font-semibold">{partner}in cevabı:</span>{' '}
+                              {row[onunKendiCevabi] || '—'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-2 mt-4">
+                    <button
+                      type="button"
+                      onClick={() => rememberStep(1)}
+                      className="flex-1 py-2.5 rounded-2xl bg-white border border-rose-200 text-rose-700 text-xs font-bold hover:bg-rose-50 transition cursor-pointer"
+                    >
+                      Cevapları Düzenle
+                    </button>
+                    <button
+                      type="button"
+                      onClick={onClose}
+                      className="flex-1 py-2.5 rounded-2xl bg-gradient-to-r from-rose-500 to-pink-500 text-white text-xs font-bold shadow-md transition cursor-pointer"
+                    >
+                      Kapat
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           ) : (
             /* SORU ADIMI */
