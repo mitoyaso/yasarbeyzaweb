@@ -13,19 +13,6 @@
 
 export const QUIZ_SENDERS = ['Yaşar', 'Beyza'];
 
-export const QUIZ_QUESTIONS = [
-  { id: 'q1', text: 'En sevdiğim yemek ne?' },
-  { id: 'q2', text: 'Beni en çok ne mutlu eder?' },
-  { id: 'q3', text: 'En sevdiğim renk hangisi?' },
-  { id: 'q4', text: 'Birlikte ilk nereye gitmiştik?' },
-  { id: 'q5', text: 'En çok hangi şarkıyı severim?' },
-  { id: 'q6', text: 'Sabah ilk ne yaparım?' },
-  { id: 'q7', text: 'Beni en çok neye güldürürsün?' },
-  { id: 'q8', text: 'Hayalimdeki tatil neresi?' },
-  { id: 'q9', text: 'En sevdiğim anı hangisi?' },
-  { id: 'q10', text: 'Bir günümüz olsa ne yapardık?' },
-];
-
 const SORU_HAVUZU = [
   {
     id: 'gunluk',
@@ -109,17 +96,33 @@ const SORU_HAVUZU = [
   },
 ];
 
-function karistir(liste) {
+function seedliRastgele(seed) {
+  let state = 2166136261;
+  for (const karakter of String(seed)) {
+    state = Math.imul(state ^ karakter.charCodeAt(0), 16777619);
+  }
+
+  return () => {
+    state += 0x6d2b79f5;
+    let value = state;
+    value = Math.imul(value ^ (value >>> 15), value | 1);
+    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
+    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function karistir(liste, rastgele = Math.random) {
   const sonuc = [...liste];
   for (let i = sonuc.length - 1; i > 0; i -= 1) {
-    const j = Math.floor(Math.random() * (i + 1));
+    const j = Math.floor(rastgele() * (i + 1));
     [sonuc[i], sonuc[j]] = [sonuc[j], sonuc[i]];
   }
   return sonuc;
 }
 
 /** AI/API kullanmadan, her kategoriden iki soru seçerek ortak tur hazırlar. */
-export function createQuizRound(previousQuestions = []) {
+export function createQuizRound(previousQuestions = [], seed = null) {
+  const rastgele = seed === null ? Math.random : seedliRastgele(seed);
   const oncekiSorular = new Set(
     previousQuestions.map((question) => normalizeAnswer(question?.text)).filter(Boolean)
   );
@@ -130,17 +133,67 @@ export function createQuizRound(previousQuestions = []) {
     );
     const adaylar = oncekiOlmayanlar.length >= 2 ? oncekiOlmayanlar : kategori.sorular;
 
-    return karistir(adaylar)
+    return karistir(adaylar, rastgele)
       .slice(0, 2)
       .map((text) => ({ text, kategori: kategori.kategori }));
   });
 
-  return karistir(secilenler).map((question, index) => ({
+  return karistir(secilenler, rastgele).map((question, index) => ({
     id: `q${index + 1}`,
     text: question.text,
     category: question.kategori,
   }));
 }
+
+function istanbulTarihAnahtari(date) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'Europe/Istanbul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function gunIndeksi(dayKey) {
+  const [year, month, day] = dayKey.split('-').map(Number);
+  const currentDay = Date.UTC(year, month - 1, day);
+  const epochDay = Date.UTC(2020, 0, 1);
+  return Math.floor((currentDay - epochDay) / 86_400_000);
+}
+
+/** Aynı Türkiye gününde aynı 10 soruyu gösterir; beş günde havuzun tamamını kullanır. */
+export function createDailyQuizRound(date = new Date()) {
+  const dayKey = istanbulTarihAnahtari(date);
+  const dayNumber = gunIndeksi(dayKey);
+  const dayInCycle = ((dayNumber % 5) + 5) % 5;
+  const cycleNumber = Math.floor(dayNumber / 5);
+  const chosen = SORU_HAVUZU.flatMap((category) =>
+    karistir(
+      category.sorular,
+      seedliRastgele(`yasar-beyza-havuz-${cycleNumber}-${category.id}`)
+    )
+      .slice(dayInCycle * 2, dayInCycle * 2 + 2)
+      .map((text) => ({ text, kategori: category.kategori }))
+  );
+
+  return {
+    id: `gunluk-${dayKey}`,
+    created_at: `${dayKey}T00:00:00.000Z`,
+    created_by: null,
+    questions: karistir(chosen, seedliRastgele(`yasar-beyza-gunluk-${dayKey}`)).map(
+      (question, index) => ({
+        id: `q${index + 1}`,
+        text: question.text,
+        category: question.kategori,
+      })
+    ),
+  };
+}
+
+// Geriye uyumlu puanlama varsayılanı; oyun arayüzü günlük havuz turunu kullanır.
+export const QUIZ_QUESTIONS = createQuizRound([], 'varsayilan-quiz-turu');
 
 export const SELF_SUFFIX = '#oz';
 export const GUESS_SUFFIX = '#tahmin';

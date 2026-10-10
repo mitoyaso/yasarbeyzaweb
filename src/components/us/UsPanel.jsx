@@ -3,9 +3,8 @@ import { getCounts, backfillMissingThumbnails, isLocationAvailable, isTrashAvail
 import {
   isQuizAvailable,
   fetchQuizAnswers,
-  fetchLatestQuizRound,
   quizProgress,
-  QUIZ_QUESTIONS,
+  createDailyQuizRound,
 } from '../../lib/quiz';
 import QuizModal from './QuizModal';
 import MemoryMap from './MemoryMap';
@@ -74,7 +73,7 @@ export default function UsPanel({
   const [quizAvailable, setQuizAvailable] = useState(false);
   const [isQuizOpen, setIsQuizOpen] = useState(false);
   const [quizRows, setQuizRows] = useState([]);
-  const [quizRound, setQuizRound] = useState(null);
+  const [quizRound, setQuizRound] = useState(() => createDailyQuizRound());
   const [locationAvailable, setLocationAvailable] = useState(false);
   const [isMapOpen, setIsMapOpen] = useState(false);
   const [trashAvailable, setTrashAvailable] = useState(false);
@@ -122,9 +121,9 @@ export default function UsPanel({
   // (Faz 3 SQL'i çalıştırılmadıysa bölüm tamamen gizli kalır).
   const refreshQuiz = useCallback(async () => {
     try {
-      const [rows, round] = await Promise.all([fetchQuizAnswers(), fetchLatestQuizRound()]);
+      const rows = await fetchQuizAnswers();
       setQuizRows(rows);
-      setQuizRound(round);
+      setQuizRound(createDailyQuizRound());
     } catch (err) {
       console.warn('Quiz cevapları okunamadı:', err);
     }
@@ -137,10 +136,10 @@ export default function UsPanel({
       .then((ok) => {
         if (cancelled || !ok) return undefined;
         setQuizAvailable(true);
-        return Promise.all([fetchQuizAnswers(), fetchLatestQuizRound()]).then(([rows, round]) => {
+        return fetchQuizAnswers().then((rows) => {
           if (!cancelled) {
             setQuizRows(rows);
-            setQuizRound(round);
+            setQuizRound(createDailyQuizRound());
           }
         });
       })
@@ -211,13 +210,10 @@ export default function UsPanel({
   const unlockedCount = achievements.filter((item) => item.unlocked).length;
 
   const quizQuestions = useMemo(
-    () =>
-      quizRound
-        ? quizRound.questions.map((question) => ({
-            ...question,
-            id: `${quizRound.id}:${question.id}`,
-          }))
-        : QUIZ_QUESTIONS,
+    () => quizRound.questions.map((question) => ({
+      ...question,
+      id: `${quizRound.id}:${question.id}`,
+    })),
     [quizRound]
   );
 

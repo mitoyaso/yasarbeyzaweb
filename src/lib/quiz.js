@@ -15,6 +15,7 @@ export {
   QUIZ_SENDERS,
   QUIZ_QUESTIONS,
   createQuizRound,
+  createDailyQuizRound,
   SELF_SUFFIX,
   GUESS_SUFFIX,
   selfKey,
@@ -49,53 +50,6 @@ export async function fetchQuizAnswers() {
 
   if (error) throw new Error('Test cevapları alınamadı: ' + error.message);
   return data || [];
-}
-
-/** AI tarafından oluşturulan son ortak soru turunu getirir. */
-export async function fetchLatestQuizRound() {
-  if (!isSupabaseConfigured) return null;
-
-  const { data, error } = await supabase
-    .from('quiz_rounds')
-    .select('id, questions, created_by, created_at')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (error) {
-    // Yeni tablo henüz eklenmediyse eski sabit test çalışmaya devam etsin.
-    if (error.code === '42P01' || error.code === 'PGRST205') return null;
-    throw new Error('Son soru turu alınamadı: ' + error.message);
-  }
-
-  if (!data || !Array.isArray(data.questions)) return null;
-  return data;
-}
-
-export async function isQuizRoundsAvailable() {
-  if (!isSupabaseConfigured) return false;
-  const { error } = await supabase.from('quiz_rounds').select('id').limit(1);
-  return !error;
-}
-
-/** Yeni ortak soru turunu iki kişinin de görebilmesi için Supabase'e kaydeder. */
-export async function saveQuizRound({ questions, createdBy }) {
-  if (!isSupabaseConfigured) throw new Error('Soru turu kaydetmek için Supabase bağlantısı gerekli.');
-
-  const { data, error } = await supabase
-    .from('quiz_rounds')
-    .insert({ questions, created_by: createdBy })
-    .select('id, questions, created_by, created_at')
-    .single();
-
-  if (error) {
-    if (error.code === '42P01' || error.code === 'PGRST205') {
-      throw new Error('Ortak soru turları için Supabase veritabanı güncellemesi gerekiyor.');
-    }
-    throw new Error('Yeni soru turu kaydedilemedi: ' + error.message);
-  }
-
-  return data;
 }
 
 /**
