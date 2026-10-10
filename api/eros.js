@@ -205,9 +205,10 @@ export default async function handler(req, res) {
     return;
   }
 
+  const modelAdi = process.env.EROS_MODEL || saglayici.model;
   const istekGovdesi = erosIstekGovdesi({
     provider: saglayiciAdi,
-    model: process.env.EROS_MODEL || saglayici.model,
+    model: modelAdi,
     sistem,
     mesajlar,
   });
@@ -243,6 +244,29 @@ export default async function handler(req, res) {
     await new Promise((resolve) => setTimeout(resolve, bekleme));
   }
 
+  // Gemini 3.8 Flash can remain at capacity after retries. If it does, make
+  // one attempt with the stable Flash-Lite model so Eros can keep responding.
+  if (cevap?.status === 503 && saglayiciAdi === 'gemini' && modelAdi === 'gemini-3.8-flash') {
+    await cevap.body?.cancel().catch(() => {});
+    const alternatifGovde = erosIstekGovdesi({
+      provider: saglayiciAdi,
+      model: 'gemini-3.5-flash-lite',
+      sistem,
+      mesajlar,
+    });
+
+    try {
+      cevap = await fetch(saglayici.adres, {
+        ...istekSecenekleri,
+        body: JSON.stringify(alternatifGovde),
+      });
+      baglantiHatasi = null;
+    } catch (hata) {
+      cevap = null;
+      baglantiHatasi = hata;
+    }
+  }
+
   if (!cevap && baglantiHatasi) {
     res.status(502).json({ hata: 'Yapay zekâ servisine ulaşılamadı: ' + baglantiHatasi.message });
     return;
@@ -264,7 +288,7 @@ export default async function handler(req, res) {
           : cevap.status === 429
             ? 'Çok hızlı istek gönderildi (ücretsiz katman sınırı olabilir). Biraz bekleyip tekrar dene.'
           : cevap.status === 503
-            ? 'Gemini servisi şu anda yoğun (503). Otomatik yeniden denemeler sonuç vermedi; biraz sonra tekrar dene.'
+            ? 'Gemini şu anda yoğun (503); ana model ve hafif model denemeleri de yanıt vermedi. Biraz sonra tekrar dene.'
             : `Yapay zekâ servisi hata verdi (${cevap.status}).`;
 
     res.status(502).json({ hata: mesaj, ayrinti });
